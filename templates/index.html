@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>追问式讲题教练</title>
+<link rel="manifest" href="/static/manifest.webmanifest">
+<meta name="theme-color" content="#2f6fed">
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<style>
+  body { font-family: system-ui, "Microsoft YaHei", sans-serif; margin:0; background:#f5f6f8; color:#222; }
+  header { background:#fff; border-bottom:1px solid #e3e5e8; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; }
+  h1 { font-size:17px; margin:0; }
+  #budget { font-size:12px; color:#666; }
+  main { max-width:1100px; margin:0 auto; padding:16px; }
+  .layout { display:flex; gap:16px; align-items:stretch; }
+  .left { flex:0 0 340px; background:#fff; border:1px solid #e3e5e8; border-radius:10px; padding:16px; }
+  .right { flex:1; min-width:0; background:#fff; border:1px solid #e3e5e8; border-radius:10px; padding:16px; display:flex; flex-direction:column; }
+  h2 { font-size:15px; margin:0 0 10px; color:#333; }
+  #chat { flex:1; min-height:420px; max-height:65vh; overflow:auto; background:#fafbfc; border-radius:8px; padding:12px; }
+  @media (max-width: 900px) { .layout { flex-direction:column; } .left { flex:auto; } }
+  .msg { margin:10px 0; padding:10px 12px; border-radius:10px; max-width:85%; white-space:pre-wrap; word-break:break-word; }
+  .coach { background:#eef3ff; }
+  .student { background:#e8f7ee; margin-left:auto; text-align:left; }
+  .error { background:#fdecec; color:#b3261e; }
+  .sys { color:#888; font-size:12px; text-align:center; margin:6px 0; }
+  textarea { width:100%; box-sizing:border-box; border:1px solid #ccc; border-radius:8px; padding:10px; font-size:14px; resize:vertical; }
+  .row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+  button { border:none; border-radius:8px; padding:9px 14px; font-size:14px; cursor:pointer; background:#2f6fed; color:#fff; }
+  button:disabled { background:#b9c6e2; cursor:not-allowed; }
+  button.sec { background:#f0f1f3; color:#333; border:1px solid #d5d8dd; }
+  .small { font-size:12px; color:#888; margin-top:6px; }
+  .symrow { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+  .sym { padding:4px 8px; font-size:14px; background:#ffffff; border:1px solid #b8bec9; border-radius:6px; cursor:pointer; color:#1f2329; }
+  .sym:hover { background:#e8ecf5; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧑‍🏫 追问式讲题教练 <span style="color:#999;font-weight:normal;font-size:12px">（B方案 MVP · 本地验证版）</span></h1>
+  <div style="display:flex;align-items:center;gap:10px">
+    <button id="btnInstall" class="sec" style="display:none">⬇️ 安装到桌面</button>
+    <div id="budget">加载预算…</div>
+  </div>
+</header>
+<main>
+  <div class="layout">
+    <div class="left">
+      <h2>📝 题目</h2>
+      <div class="row" style="margin-top:0">
+        <label style="align-self:center;font-size:14px">省份</label>
+        <select id="province" style="padding:8px 10px;border-radius:8px;border:1px solid #ccc;font-size:14px"></select>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <label style="align-self:center;font-size:14px">年级</label>
+        <select id="grade" style="padding:8px 10px;border-radius:8px;border:1px solid #ccc;font-size:14px"></select>
+      </div>
+      <div class="row">
+        <button id="btnPractice" class="sec">🎲 随机练一题</button>
+      </div>
+      <textarea id="question" rows="5" placeholder="粘贴题目或点 🎤 说题（普通写法即可：x^2、根号2、大于等于）…"></textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="sec" onclick="voiceInput('question')">🎤 语音说题</button>
+      </div>
+      <div class="small">提示：若点了没反应，说明浏览器语音服务在国内不可用，请改用系统语音输入（Win11 按 Win+H，或搜狗/讯飞输入法的麦克风）直接对着输入框说话。</div>
+      <div class="symrow" id="symQ"></div>
+      <div class="row">
+        <button id="btnStart" style="width:100%">开始讲题</button>
+      </div>
+      <div class="small" id="userBudget"></div>
+      <div class="small" style="color:#999">📱 手机浏览器打开后，用浏览器菜单「添加到主屏幕」，可像 App 一样使用。</div>
+    </div>
+    <div class="right">
+      <h2>💬 做题窗口</h2>
+      <div id="chat"></div>
+      <div id="hint" class="sys">👈 先点「🎲 随机练一题」抽一道题（或把题目粘贴到左侧），再点「开始讲题」，AI 老师会在这里一步步引导你做题。</div>
+      <div id="answerArea" style="display:none">
+        <textarea id="answer" rows="2" placeholder="写出回答或疑问，也可点 🎤 语音输入（x^2、根号2 等普通写法即可）…"></textarea>
+        <div class="symrow" id="symA"></div>
+        <div class="row">
+          <button class="sec" onclick="voiceInput('answer')">🎤</button>
+          <button id="btnReply">发送回答</button>
+          <button id="btnUnlock" class="sec" disabled>解锁完整讲解</button>
+          <button id="btnSimilar" class="sec" disabled>举一反三</button>
+          <button id="btnSummary" class="sec" disabled>📋 学习报告</button>
+        </div>
+        <div class="small" id="roundInfo"></div>
+      </div>
+    </div>
+  </div>
+</main>
+<script>
+const chat = document.getElementById('chat');
+let sessionId = null;
+
+function getUid() {
+  let uid = localStorage.getItem('tutor_uid');
+  if (!uid) {
+    uid = 'u' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('tutor_uid', uid);
+  }
+  return uid;
+}
+
+function renderMath(el) {
+  if (typeof renderMathInElement === 'function') {
+    try {
+      renderMathInElement(el, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '\\[', right: '\\]', display: true },
+          { left: '\\(', right: '\\)', display: false },
+          { left: '$', right: '$', display: false }
+        ],
+        throwOnError: false
+      });
+    } catch (e) { /* 渲染失败保持原文，不影响使用 */ }
+  }
+}
+
+function addMsg(text, cls) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + (cls || 'coach');
+  d.textContent = text;
+  renderMath(d);
+  chat.appendChild(d);
+  chat.scrollTop = chat.scrollHeight;
+  return d;
+}
+
+async function api(path, body) {
+  const r = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Tutor-Uid': getUid() },
+    body: JSON.stringify(body || {})
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+
+function refreshBudget() {
+  fetch('/api/status', { headers: { 'X-Tutor-Uid': getUid() } }).then(r => r.json()).then(j => {
+    const b = j.budget;
+    document.getElementById('budget').textContent =
+      '已用 ¥' + b.total_spent + ' / ¥' + b.budget + ' ｜ 今日 ¥' + b.spent_today;
+    const u = j.user;
+    if (u) {
+      let line = '我的内测额度：¥' + u.remaining.toFixed(3) + ' / ¥' + u.cap +
+        ' ｜ 内测人数 ' + u.users + '/' + u.max_users;
+      if (u.window && u.window.days_left !== null) {
+        line += ' ｜ 内测剩余 ' + u.window.days_left + ' 天';
+      }
+      document.getElementById('userBudget').textContent = line;
+    }
+  }).catch(() => {});
+}
+
+document.getElementById('btnStart').onclick = async () => {
+  const q = document.getElementById('question').value.trim();
+  if (!q) return addMsg('请先输入题目。', 'error');
+  addMsg(q, 'student');
+  try {
+    const r = await api('/api/start', { question: q, province: document.getElementById('province').value, grade: document.getElementById('grade').value });
+    sessionId = r.session_id;
+    addMsg(r.reply, 'coach');
+    document.getElementById('answerArea').style.display = 'block';
+    document.getElementById('hint').style.display = 'none';
+    setRound(r);
+    refreshBudget();
+  } catch (e) {
+    addMsg('⚠️ ' + e.message, 'error');
+    refreshBudget();
+  }
+};
+
+document.getElementById('btnReply').onclick = async () => {
+  const t = document.getElementById('answer').value.trim();
+  if (!t) return;
+  addMsg(t, 'student');
+  document.getElementById('answer').value = '';
+  try {
+    const r = await api('/api/reply', { session_id: sessionId, text: t });
+    addMsg(r.reply, 'coach');
+    setRound(r);
+    refreshBudget();
+  } catch (e) {
+    addMsg('⚠️ ' + e.message, 'error');
+    refreshBudget();
+  }
+};
+
+function setRound(r) {
+  document.getElementById('btnUnlock').disabled = !r.can_unlock;
+  document.getElementById('btnSimilar').disabled = false;
+  document.getElementById('btnSummary').disabled = false;
+  document.getElementById('roundInfo').textContent =
+    '已追问 ' + r.round + ' 轮' + (r.can_unlock ? '（可解锁完整讲解）' : '');
+}
+
+async function simpleAct(path) {
+  if (!sessionId) return addMsg('请先开始讲题。', 'error');
+  try {
+    const r = await api(path, { session_id: sessionId });
+    addMsg(r.reply, 'coach');
+    if (path === '/api/similar') {
+      document.getElementById('question').value = r.reply;
+      addMsg('▲ 上方已填入变式题，点「开始讲题」开启新引导', 'sys');
+    }
+    refreshBudget();
+  } catch (e) {
+    addMsg('⚠️ ' + e.message, 'error');
+    refreshBudget();
+  }
+}
+
+function loadProvinces() {
+  fetch('/api/provinces').then(r => r.json()).then(j => {
+    const sel = document.getElementById('province');
+    (j.list || ['通用']).forEach(p => {
+      const o = document.createElement('option');
+      o.value = p; o.textContent = p;
+      if (p === (j.default || '通用')) o.selected = true;
+      sel.appendChild(o);
+    });
+  }).catch(() => {});
+}
+
+function loadGrades() {
+  fetch('/api/grades').then(r => r.json()).then(j => {
+    const sel = document.getElementById('grade');
+    (j.list || ['通用']).forEach(g => {
+      const o = document.createElement('option');
+      o.value = g; o.textContent = g;
+      if (g === (j.default || '通用')) o.selected = true;
+      sel.appendChild(o);
+    });
+  }).catch(() => {});
+}
+
+const MATH_SYMBOLS = ['²', '³', '√', 'Δ', '≥', '≤', '≠', '±', '×', '÷', '≈', '∞', 'π', '∠', '∥', '⊥', '1/2', 'x^2'];
+
+function buildSymBars() {
+  ['symQ', 'symA'].forEach(id => {
+    const bar = document.getElementById(id);
+    MATH_SYMBOLS.forEach(s => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sym';
+      b.textContent = s;
+      b.onclick = () => insertSymbol(id === 'symQ' ? 'question' : 'answer', s);
+      bar.appendChild(b);
+    });
+  });
+}
+
+function insertSymbol(targetId, s) {
+  const el = document.getElementById(targetId);
+  const pos = el.selectionStart ?? el.value.length;
+  el.value = el.value.slice(0, pos) + s + el.value.slice(el.selectionEnd ?? pos);
+  el.focus();
+  el.selectionStart = el.selectionEnd = pos + s.length;
+}
+
+function voiceInput(targetId) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    addMsg('⚠️ 当前浏览器不支持语音输入，请改用 Chrome 或 Edge。', 'error');
+    return;
+  }
+  const rec = new SR();
+  rec.lang = 'zh-CN';
+  rec.interimResults = false;
+  const el = document.getElementById(targetId);
+  rec.onresult = (e) => {
+    const t = (e.results[0][0].transcript || '').trim();
+    if (t) el.value = (el.value ? el.value + ' ' : '') + t;
+  };
+  rec.onerror = (e) => {
+    const hints = {
+      'not-allowed': '麦克风权限被拒绝，请在浏览器地址栏允许麦克风后重试。',
+      'network': '浏览器内置语音依赖谷歌服务，国内网络无法连接。请改用系统语音输入（Win11 按 Win+H，或搜狗/讯飞输入法的麦克风）。',
+      'no-speech': '没有听到声音，请检查麦克风是否正常，再试一次。',
+      'audio-capture': '未检测到可用麦克风。'
+    };
+    addMsg('⚠️ ' + (hints[e.error] || ('语音识别出错（' + e.error + '）')), 'error');
+  };
+  rec.onend = () => {
+    const el2 = document.getElementById(targetId);
+    if (!el2.value.trim()) {
+      // 无结果结束，不做干扰提示，避免误报
+    }
+  };
+  try { rec.start(); } catch (err) { addMsg('⚠️ 语音识别启动失败：' + err.message, 'error'); }
+}
+
+document.getElementById('btnPractice').onclick = async () => {
+  const p = document.getElementById('province').value;
+  try {
+    const r = await fetch('/api/practice?province=' + encodeURIComponent(p));
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    const q = j.question;
+    document.getElementById('question').value = q.question;
+    const tag = [q.province, q.source_type, q.year || '', q.type].filter(Boolean).join(' · ');
+    addMsg('🎲 已抽取「' + tag + '」', 'sys');
+  } catch (e) {
+    addMsg('⚠️ ' + e.message, 'error');
+  }
+};
+
+loadProvinces();
+loadGrades();
+buildSymBars();
+
+document.getElementById('btnUnlock').onclick = () => simpleAct('/api/unlock');
+document.getElementById('btnSimilar').onclick = () => simpleAct('/api/similar');
+document.getElementById('btnSummary').onclick = () => simpleAct('/api/summarize');
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('btnInstall').style.display = 'inline-block';
+});
+document.getElementById('btnInstall').onclick = async () => {
+  if (!deferredPrompt) {
+    addMsg('⚠️ 当前浏览器不支持一键安装。手机上可打开浏览器菜单选「添加到主屏幕」，像 App 一样使用。', 'error');
+    return;
+  }
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  document.getElementById('btnInstall').style.display = 'none';
+};
+
+refreshBudget();
+setInterval(refreshBudget, 30000);
+</script>
+</body>
+</html>

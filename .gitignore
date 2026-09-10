@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+data/usage.json
+data/stats.json
+data/check_report.json
+data/user_usage.json
+data/test_report.json
+data/test_summaries.md
