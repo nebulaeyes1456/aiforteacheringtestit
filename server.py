@@ -6,6 +6,7 @@
 import datetime as dt
 import json
 import random
+import time
 import uuid
 
 from flask import Flask, jsonify, render_template, request
@@ -14,6 +15,7 @@ from tutor import client, config, engine
 
 app = Flask(__name__)
 SESSIONS = {}  # session_id -> engine.Session
+SESSION_META = {}  # session_id -> {"key": 兑换码, "last": 上次活动时间}
 
 
 # ---------- 内测成本控制（每人限额 + 人数上限） ----------
@@ -91,6 +93,83 @@ def _charge_user(uid: str, cost: float):
         _save_users(data)
 
 
+# ---------- 兑换码按时长计费（匿名密钥，不关联任何身份信息） ----------
+
+def _key() -> str:
+    return (request.headers.get("X-Tutor-Key") or "").strip().upper()
+
+
+def _load_vouchers():
+    if config.VOUCHER_FILE.exists():
+        try:
+            return json.loads(config.VOUCHER_FILE.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+    return {"vouchers": {}}
+
+
+def _save_vouchers(data):
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    config.VOUCHER_FILE.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def _get_voucher(key: str):
+    if not key:
+        return None
+    return _load_vouchers().get("vouchers", {}).get(key)
+
+
+def _voucher_remaining(v) -> float:
+    """剩余秒数。"""
+    return max(round(v.get("hours", 0.0) * 3600 - v.get("seconds_used", 0.0), 1), 0.0)
+
+
+def _check_voucher(v):
+    if not v:
+        return None
+    if v.get("status") != "active":
+        raise ValueError("兑换码已停用（已退款或作废），请联系卖家。")
+    if _voucher_remaining(v) <= 0:
+        raise ValueError("兑换时长已用完，可联系卖家续购或退款。")
+    return v
+
+
+def _pre_check(sid: str):
+    """调用前检查：密钥用户查时长余额；否则按内测规则检查。"""
+    meta = SESSION_META.get(sid)
+    if meta:
+        _check_voucher(_get_voucher(meta["key"]))
+    else:
+        _ensure_user(_uid())
+
+
+def _after_call(sid: str):
+    """密钥用户：按两次交互间的实际经过时间扣时长，挂机超过上限的部分不计费。"""
+    meta = SESSION_META.get(sid)
+    if not meta:
+        return
+    now = time.time()
+    delta = min(now - meta["last"], config.VOUCHER_IDLE_CAP_SEC)
+    meta["last"] = now
+    if delta <= 0:
+        return
+    data = _load_vouchers()
+    v = data["vouchers"].get(meta["key"])
+    if v:
+        v["seconds_used"] = round(v.get("seconds_used", 0.0) + delta, 1)
+        _save_vouchers(data)
+
+
+def _post_call(sid: str):
+    """调用后结算：密钥用户扣时长；内测用户按 API 成本记账。"""
+    if SESSION_META.get(sid):
+        _after_call(sid)
+    else:
+        _charge_user(_uid(), client.last_call_cost)
+
+
 def _stat(event: str):
     path = config.STATS_FILE
     data = {}
@@ -138,10 +217,20 @@ def status():
     data = _load_users()
     u = data["users"].get(_uid()) or {"cost": 0.0}
     _, _, days_left = _window_status(data)
+    v = _get_voucher(_key())
+    voucher = None
+    if v:
+        voucher = {
+            "hours": v.get("hours"),
+            "remaining_hours": round(_voucher_remaining(v) / 3600, 2),
+            "status": v.get("status"),
+        }
     return jsonify(
         {
             "budget": client.budget_status(),
             "active_sessions": len(SESSIONS),
+            "mode": config.ACCESS_MODE,
+            "voucher": voucher,
             "user": {
                 "spent": round(u.get("cost", 0.0), 4),
                 "cap": config.BETA_USER_CAP_YUAN,
@@ -153,6 +242,25 @@ def status():
                     "total_days": config.BETA_DURATION_DAYS,
                 },
             },
+        }
+    )
+
+
+@app.post("/api/redeem")
+def redeem():
+    """兑换码验证（不消耗任何时长）。"""
+    body = request.get_json(silent=True) or {}
+    key = (body.get("key") or "").strip().upper()
+    v = _get_voucher(key)
+    if not v:
+        return jsonify({"error": "兑换码无效，请检查后重试。"}), 404
+    if v.get("status") != "active":
+        return jsonify({"error": "兑换码已停用（已退款或作废），请联系卖家。"}), 404
+    return jsonify(
+        {
+            "ok": True,
+            "hours": v.get("hours"),
+            "remaining_hours": round(_voucher_remaining(v) / 3600, 2),
         }
     )
 
@@ -207,11 +315,20 @@ def start():
     grade = (body.get("grade") or "").strip() or config.GRADE
 
     def run():
-        _ensure_user(_uid())
         sid = uuid.uuid4().hex[:12]
+        v = _get_voucher(_key())
+        if v:
+            _check_voucher(v)
+        else:
+            if config.ACCESS_MODE == "private":
+                raise ValueError("本服务仅限已购用户使用，请先输入兑换码。")
+            _ensure_user(_uid())
         s = engine.Session(province, grade)
         result = s.start(question)
-        _charge_user(_uid(), client.last_call_cost)
+        if v:
+            SESSION_META[sid] = {"key": _key(), "last": time.time()}
+        else:
+            _charge_user(_uid(), client.last_call_cost)
         SESSIONS[sid] = s
         _stat("session_start")
         result["session_id"] = sid
@@ -227,11 +344,12 @@ def reply():
     s = _get_session(body)
     if not s:
         return jsonify({"error": "会话不存在或已过期"}), 404
+    sid = body.get("session_id")
 
     def run():
-        _ensure_user(_uid())
+        _pre_check(sid)
         result = s.reply(body.get("text", ""))
-        _charge_user(_uid(), client.last_call_cost)
+        _post_call(sid)
         _stat("student_reply")
         return jsonify(result)
 
@@ -244,11 +362,12 @@ def unlock():
     s = _get_session(body)
     if not s:
         return jsonify({"error": "会话不存在或已过期"}), 404
+    sid = body.get("session_id")
 
     def run():
-        _ensure_user(_uid())
+        _pre_check(sid)
         text = s.unlock()
-        _charge_user(_uid(), client.last_call_cost)
+        _post_call(sid)
         _stat("unlock")
         return jsonify({"reply": text})
 
@@ -261,11 +380,12 @@ def similar():
     s = _get_session(body)
     if not s:
         return jsonify({"error": "会话不存在或已过期"}), 404
+    sid = body.get("session_id")
 
     def run():
-        _ensure_user(_uid())
+        _pre_check(sid)
         text = s.similar()
-        _charge_user(_uid(), client.last_call_cost)
+        _post_call(sid)
         _stat("similar")
         return jsonify({"reply": text})
 
@@ -278,11 +398,12 @@ def summarize():
     s = _get_session(body)
     if not s:
         return jsonify({"error": "会话不存在或已过期"}), 404
+    sid = body.get("session_id")
 
     def run():
-        _ensure_user(_uid())
+        _pre_check(sid)
         text = s.summarize()
-        _charge_user(_uid(), client.last_call_cost)
+        _post_call(sid)
         _stat("summarize")
         return jsonify({"reply": text})
 

@@ -73,6 +73,15 @@ python test_student.py --sessions 50 --rounds 5 --student script
 - 服务器部署要点：安装依赖、设置 `DEEPSEEK_API_KEY` 环境变量、`waitress-serve --host 0.0.0.0 --port 8000 server:app`、配置 HTTPS
 - 提醒：ICP 备案是硬性前置，建议尽早启动
 
+## 付费兑换码（闲鱼结算：随机密钥兑时长，买多少用多少）
+
+- 生成：`python admin_vouchers.py gen --hours 2 --count 5 --note "闲鱼订单号"`，把打印出的密钥私发买家
+- 查询：`python admin_vouchers.py list`（含已用/剩余分钟数）
+- 退款：`python admin_vouchers.py refund TUT-XXXX-XXXX-XXXX`（按剩余时长 × 单价算出应退金额，台账留痕）
+- 计费规则：按两次交互间的实际经过时间计费（挂机超过 `TUTOR_IDLE_CAP` 秒的部分不计费）；兑换码纯随机、不关联任何身份信息
+- 模式切换：`TUTOR_MODE=beta`（内测免费）／ `TUTOR_MODE=private`（仅兑换码可进入，页面只显示兑换页）
+- 台账文件 `data/vouchers.json` 已 gitignore，勿删（退款审计用）
+
 ## 合规提醒（项目书 §8）
 
 游客模式、无账号、不收集任何身份信息；题目即用即清；只使用省级考试院官方公开真题。

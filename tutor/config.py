@@ -38,6 +38,12 @@ BETA_MAX_USERS = int(os.environ.get("TUTOR_BETA_USERS", "1000"))      # 内测�
 BETA_DURATION_DAYS = int(os.environ.get("TUTOR_BETA_DAYS", "14"))     # 内测周期（天），从第一个用户起算
 USER_USAGE_FILE = DATA_DIR / "user_usage.json"
 
+# ---------- 付费兑换码（闲鱼结算：随机密钥兑时长，买多少用多少） ----------
+ACCESS_MODE = os.environ.get("TUTOR_MODE", "beta")  # beta=内测免费模式；private=仅兑换码可进入
+VOUCHER_FILE = DATA_DIR / "vouchers.json"            # 兑换码台账（含退款记录，勿删）
+VOUCHER_IDLE_CAP_SEC = int(os.environ.get("TUTOR_IDLE_CAP", "300"))  # 挂机不计费上限（秒）
+VOUCHER_PRICE_PER_HOUR = float(os.environ.get("TUTOR_PRICE", "2"))   # 参考价：2 元/小时（仅用于退款核算提示）
+
 # ---------- 讲题参数 ----------
 PROVINCE = os.environ.get("TUTOR_PROVINCE", "通用")  # 默认省份，软件内可切换
 PROVINCES = [
