@@ -45,8 +45,9 @@ def remaining_seconds(v) -> float:
 
 def cmd_gen(args):
     data = load()
+    price = args.price if args.price is not None else config.VOUCHER_PRICE_PER_HOUR
     print(f"生成 {args.count} 个兑换码，每个 {args.hours} 小时"
-          f"（参考价 ¥{args.hours * config.VOUCHER_PRICE_PER_HOUR:.2f}，按 {config.VOUCHER_PRICE_PER_HOUR:.0f} 元/小时）：")
+          f"（单价 ¥{price:.2f}/小时，售价 ¥{args.hours * price:.2f}）：")
     print()
     for _ in range(args.count):
         key = make_key()
@@ -55,6 +56,7 @@ def cmd_gen(args):
         data["vouchers"][key] = {
             "hours": args.hours,
             "seconds_used": 0.0,
+            "price_per_hour": price,
             "created": dt.datetime.now().isoformat(timespec="seconds"),
             "note": args.note or "",
             "status": "active",
@@ -71,11 +73,12 @@ def cmd_list(args):
     if not vs:
         print("暂无兑换码。")
         return
-    print(f"{'兑换码':<22}{'总时长':>6}{'已用(分)':>8}{'剩余(分)':>8}  {'状态':<10}{'备注'}")
+    print(f"{'兑换码':<22}{'总时长':>6}{'已用(分)':>8}{'剩余(分)':>8}{'单价':>6}  {'状态':<10}{'备注'}")
     for k, v in sorted(vs.items()):
         used_min = round(v.get("seconds_used", 0.0) / 60, 1)
         rem_min = round(remaining_seconds(v) / 60, 1)
-        print(f"{k:<22}{v['hours']:>6.1f}{used_min:>8.1f}{rem_min:>8.1f}  "
+        price = v.get("price_per_hour", config.VOUCHER_PRICE_PER_HOUR)
+        print(f"{k:<22}{v['hours']:>6.1f}{used_min:>8.1f}{rem_min:>8.1f}{price:>6.2f}  "
               f"{v.get('status', 'active'):<10}{v.get('note', '')}")
 
 
@@ -89,14 +92,15 @@ def cmd_refund(args):
         print(f"该兑换码已处于「{v.get('status')}」状态，无需重复退款。")
         return
     rem_h = round(remaining_seconds(v) / 3600, 2)
-    refund = round(rem_h * config.VOUCHER_PRICE_PER_HOUR, 2)
+    price = v.get("price_per_hour", config.VOUCHER_PRICE_PER_HOUR)
+    refund = round(rem_h * price, 2)
     v["status"] = "refunded"
     v["refunded_at"] = dt.datetime.now().isoformat(timespec="seconds")
     v["refund_hours"] = rem_h
     v["refund_yuan"] = refund
     save(data)
     print(f"已标记退款：{args.key}")
-    print(f"  剩余 {rem_h} 小时 × {config.VOUCHER_PRICE_PER_HOUR:.0f} 元/小时 = 应退 ¥{refund}")
+    print(f"  剩余 {rem_h} 小时 × {price:.2f} 元/小时 = 应退 ¥{refund}")
     print("请在闲鱼按此金额退款并保留聊天/转账记录。台账已更新。")
 
 
@@ -106,6 +110,7 @@ def main():
     p_gen = sub.add_parser("gen")
     p_gen.add_argument("--hours", type=float, required=True, help="每个兑换码的时长（小时）")
     p_gen.add_argument("--count", type=int, default=1)
+    p_gen.add_argument("--price", type=float, default=None, help="单价（元/小时），不填则用默认价")
     p_gen.add_argument("--note", default="", help="备注（建议填闲鱼订单号）")
     p_gen.set_defaults(func=cmd_gen)
     p_list = sub.add_parser("list")
