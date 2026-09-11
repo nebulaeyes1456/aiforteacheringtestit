@@ -36,6 +36,10 @@
   .symrow { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
   .sym { padding:4px 8px; font-size:14px; background:#ffffff; border:1px solid #b8bec9; border-radius:6px; cursor:pointer; color:#1f2329; }
   .sym:hover { background:#e8ecf5; }
+  .tagbox { background:#f0f6ff; border:1.5px solid #2f6fed; border-radius:10px; padding:10px; margin-top:10px; }
+  .tagtitle { font-size:14px; font-weight:600; color:#2f6fed; }
+  .tagchip { display:inline-block; background:#fff; border:1px solid #2f6fed; color:#2f6fed; border-radius:14px; padding:3px 10px; font-size:13px; margin:3px 4px 3px 0; cursor:pointer; }
+  .tagchip:hover { background:#2f6fed; color:#fff; }
 </style>
 </head>
 <body>
@@ -70,13 +74,17 @@
         <label style="align-self:center;font-size:14px">年级</label>
         <select id="grade" style="padding:8px 10px;border-radius:8px;border:1px solid #ccc;font-size:14px"></select>
       </div>
-      <div class="row">
-        <input id="tagInput" type="text" list="tagList" placeholder="知识点关键词（可选，如：判别式）" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid #ccc;font-size:14px">
-        <button id="btnSummaryKp" class="sec">📚 要点总结</button>
+      <div class="tagbox">
+        <div class="tagtitle">🔍 按知识点找题（可不填）</div>
+        <div class="row" style="margin-top:6px">
+          <input id="tagInput" type="text" list="tagList" placeholder="输入知识点，如：判别式" style="flex:1;padding:9px 10px;border-radius:8px;border:1.5px solid #2f6fed;font-size:15px;background:#fff">
+          <button id="btnSummaryKp" class="sec">📚 要点总结</button>
+        </div>
+        <div class="small" style="margin-top:6px" id="tagChips"></div>
       </div>
       <datalist id="tagList"></datalist>
       <div class="row">
-        <button id="btnPractice" class="sec">🎲 随机练一题</button>
+        <button id="btnPractice" style="background:#2f6fed;color:#fff;border:none">🎲 随机练一题</button>
         <button id="btnSkip" class="sec">💪 这题我会，换一题</button>
       </div>
       <textarea id="question" rows="5" placeholder="粘贴题目或点 🎤 说题（普通写法即可：x^2、根号2、大于等于）…"></textarea>
@@ -357,10 +365,18 @@ function voiceInput(targetId) {
 function loadTags() {
   fetch('/api/tags').then(r => r.json()).then(j => {
     const dl = document.getElementById('tagList');
-    (j.list || []).forEach(t => {
+    const chips = document.getElementById('tagChips');
+    (j.list || []).forEach((t, idx) => {
       const o = document.createElement('option');
       o.value = t;
       dl.appendChild(o);
+      if (idx < 6) {
+        const c = document.createElement('span');
+        c.className = 'tagchip';
+        c.textContent = t;
+        c.onclick = () => { document.getElementById('tagInput').value = t; };
+        chips.appendChild(c);
+      }
     });
   }).catch(() => {});
 }
