@@ -71,7 +71,13 @@
         <select id="grade" style="padding:8px 10px;border-radius:8px;border:1px solid #ccc;font-size:14px"></select>
       </div>
       <div class="row">
+        <input id="tagInput" type="text" list="tagList" placeholder="知识点关键词（可选，如：判别式）" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid #ccc;font-size:14px">
+        <button id="btnSummaryKp" class="sec">📚 要点总结</button>
+      </div>
+      <datalist id="tagList"></datalist>
+      <div class="row">
         <button id="btnPractice" class="sec">🎲 随机练一题</button>
+        <button id="btnSkip" class="sec">💪 这题我会，换一题</button>
       </div>
       <textarea id="question" rows="5" placeholder="粘贴题目或点 🎤 说题（普通写法即可：x^2、根号2、大于等于）…"></textarea>
       <div class="row" style="margin-top:8px">
@@ -348,20 +354,69 @@ function voiceInput(targetId) {
   try { rec.start(); } catch (err) { addMsg('⚠️ 语音识别启动失败：' + err.message, 'error'); }
 }
 
-document.getElementById('btnPractice').onclick = async () => {
+function loadTags() {
+  fetch('/api/tags').then(r => r.json()).then(j => {
+    const dl = document.getElementById('tagList');
+    (j.list || []).forEach(t => {
+      const o = document.createElement('option');
+      o.value = t;
+      dl.appendChild(o);
+    });
+  }).catch(() => {});
+}
+
+function drawQuestion(skip) {
   const p = document.getElementById('province').value;
+  const tag = document.getElementById('tagInput').value.trim();
+  return fetch('/api/practice?province=' + encodeURIComponent(p) + '&tag=' + encodeURIComponent(tag) + (skip ? '&skip=1' : ''))
+    .then(async r => {
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+      return j.question;
+    });
+}
+
+document.getElementById('btnPractice').onclick = async () => {
   try {
-    const r = await fetch('/api/practice?province=' + encodeURIComponent(p));
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
-    const q = j.question;
+    const q = await drawQuestion(false);
     document.getElementById('question').value = q.question;
-    const tag = [q.province, q.source_type, q.year || '', q.type].filter(Boolean).join(' · ');
-    addMsg('🎲 已抽取「' + tag + '」', 'sys');
+    const tagText = [q.province, q.source_type, q.year || '', q.type, (q.tags || []).join('/')].filter(Boolean).join(' · ');
+    addMsg('🎲 已抽取「' + tagText + '」', 'sys');
   } catch (e) {
     addMsg('⚠️ ' + e.message, 'error');
   }
 };
+
+document.getElementById('btnSkip').onclick = async () => {
+  try {
+    const q = await drawQuestion(true);
+    document.getElementById('question').value = q.question;
+    const tagText = [q.province, q.source_type, q.year || '', q.type].filter(Boolean).join(' · ');
+    addMsg('💪 已换下一题「' + tagText + '」', 'sys');
+  } catch (e) {
+    addMsg('⚠️ ' + e.message, 'error');
+  }
+};
+
+document.getElementById('btnSummaryKp').onclick = async () => {
+  const topic = document.getElementById('tagInput').value.trim();
+  if (!topic) return addMsg('⚠️ 请先在知识点输入框填写关键词（如：判别式）。', 'error');
+  addMsg('📚 请 AI 梳理知识点：「' + topic + '」', 'student');
+  try {
+    const r = await api('/api/summary_kp', {
+      topic: topic,
+      province: document.getElementById('province').value,
+      grade: document.getElementById('grade').value
+    });
+    addMsg(r.reply, 'coach');
+    refreshBudget();
+  } catch (e) {
+    addMsg('⚠️ ' + e.message, 'error');
+    refreshBudget();
+  }
+};
+
+loadTags();
 
 loadProvinces();
 loadGrades();

@@ -11,7 +11,7 @@ import uuid
 
 from flask import Flask, jsonify, render_template, request
 
-from tutor import client, config, engine
+from tutor import client, config, engine, prompts
 
 app = Flask(__name__)
 SESSIONS = {}  # session_id -> engine.Session
@@ -277,8 +277,11 @@ def grades():
 
 @app.get("/api/practice")
 def practice():
-    """随机练一题：从题库抽 status=ready 的题，可按省份筛选。"""
+    """随机练一题：从题库抽 status=ready 的题，可按省份与知识点关键词筛选；skip=1 时仅记录跳题埋点。"""
     province = (request.args.get("province") or "").strip()
+    tag = (request.args.get("tag") or "").strip()
+    if request.args.get("skip") == "1":
+        _stat("skip_question")
     if not config.QUESTION_BANK.exists():
         return jsonify({"error": "题库尚未建立，请先按 scripts/fetch_papers.md 采集题目。"}), 404
     try:
@@ -288,8 +291,12 @@ def practice():
     pool = [q for q in bank.get("questions", []) if q.get("status") == "ready"]
     if province and province != "通用":
         pool = [q for q in pool if q.get("province") == province]
+    if tag:
+        pool = [q for q in pool if any(tag in (t or "") for t in (q.get("tags") or []))]
     if not pool:
-        return jsonify({"error": f"题库中暂无可练的题（省份：{province or '不限'}）。"}), 404
+        return jsonify(
+            {"error": f"题库中暂无可练的题（省份：{province or '不限'}，知识点：{tag or '不限'}）。"}
+        ), 404
     q = random.choice(pool)
     # 只返回学生可见字段，不返回 official_answer
     return jsonify(
@@ -301,10 +308,61 @@ def practice():
                 "year": q.get("year"),
                 "type": q.get("type"),
                 "difficulty": q.get("difficulty"),
+                "tags": q.get("tags", []),
                 "question": q.get("question"),
             }
         }
     )
+
+
+@app.get("/api/tags")
+def tags():
+    """题库里所有知识点标签（去重排序），供前端联想输入。"""
+    if not config.QUESTION_BANK.exists():
+        return jsonify({"list": []})
+    try:
+        bank = json.loads(config.QUESTION_BANK.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return jsonify({"list": []})
+    tag_set = {t for q in bank.get("questions", []) for t in (q.get("tags") or []) if t}
+    return jsonify({"list": sorted(tag_set)})
+
+
+@app.post("/api/summary_kp")
+def summary_kp():
+    """知识点要点总结（独立调用）：同样经过内测额度 / 兑换码计费。"""
+    body = request.get_json(silent=True) or {}
+    topic = (body.get("topic") or "").strip()
+    province = (body.get("province") or "").strip() or config.PROVINCE
+    grade = (body.get("grade") or "").strip() or config.GRADE
+    if not topic:
+        return jsonify({"error": "请先输入知识点关键词。"}), 400
+
+    def run():
+        v = _get_voucher(_key())
+        if v:
+            _check_voucher(v)
+        else:
+            if config.ACCESS_MODE == "private":
+                raise ValueError("本服务仅限已购用户使用，请先输入兑换码。")
+            _ensure_user(_uid())
+        t0 = time.time()
+        text = client.chat(prompts.knowledge_summary(topic, province, grade))
+        elapsed = time.time() - t0
+        if v:
+            data = _load_vouchers()
+            vv = data["vouchers"].get(_key())
+            if vv:
+                vv["seconds_used"] = round(
+                    vv.get("seconds_used", 0.0) + min(elapsed, config.VOUCHER_IDLE_CAP_SEC), 1
+                )
+                _save_vouchers(data)
+        else:
+            _charge_user(_uid(), client.last_call_cost)
+        _stat("summary_kp")
+        return jsonify({"reply": text})
+
+    return _guard(run)
 
 
 @app.post("/api/start")

@@ -10,6 +10,7 @@
       "year": null,
       "type": "代数-中档易错",
       "difficulty": "中档",
+      "tags": ["判别式", "一元二次方程", "参数取值范围"],
       "question": "已知关于 x 的一元二次方程 x^2 - 2(k-1)x + k^2 = 0 有两个不相等的实数根，求 k 的取值范围。",
       "official_answer": "k < 1/2"
     },
@@ -22,6 +23,7 @@
       "year": null,
       "type": "函数-压轴题第一问",
       "difficulty": "中档",
+      "tags": ["二次函数", "待定系数法"],
       "question": "已知抛物线 y = ax^2 + bx + 3 经过点 (1, 0) 和 (3, 0)，求 a 与 b 的值。",
       "official_answer": "a = 1，b = -4"
     },
@@ -34,6 +36,7 @@
       "year": null,
       "type": "函数-概念易错",
       "difficulty": "中档",
+      "tags": ["二次函数", "函数定义"],
       "question": "若函数 y = (m-3)x^(m^2-7) 是二次函数，求 m 的值。",
       "official_answer": "m = -3"
     },
@@ -46,6 +49,7 @@
       "year": 2025,
       "type": "代数-中档易错",
       "difficulty": "中档",
+      "tags": ["一元二次方程", "代数式变形", "整体代入"],
       "question": "已知 a^2 - 3a + 1 = 0，求 a^2 + 1/a^2 的值。",
       "official_answer": "7"
     }

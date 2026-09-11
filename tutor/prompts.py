@@ -144,6 +144,24 @@ def summarize(question: str, history, province: str = "通用", grade: str = "�
     ]
 
 
+def knowledge_summary(topic: str, province: str = "通用", grade: str = "通用"):
+    """知识点要点总结（独立调用，无题目）。"""
+    return [
+        {"role": "system", "content": system(province, grade)},
+        {
+            "role": "user",
+            "content": (
+                f"请为知识点「{topic}」做一份要点总结（面向初高中生，用中文，分五段，段落前加①②③④⑤编号）：\n"
+                "① 一句话定义：这是什么、用来干什么；\n"
+                "② 核心要点与公式：3~5 条，数学式用 $...$ 行内格式；\n"
+                "③ 常见题型与考法：2~3 条；\n"
+                "④ 高频易错点：2~3 条，并各附一句避坑提醒；\n"
+                "⑤ 检验小练习：出 1 道同知识点的小题，只出题不给答案。"
+            ),
+        },
+    ]
+
+
 # ---------- 质量抽检用（项目书 §6） ----------
 
 def solve(question: str):

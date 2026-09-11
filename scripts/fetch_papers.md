@@ -13,7 +13,7 @@
 2. 下载近 5 年公开真题
 3. 挑选题目 → 录入 `data/question_bank.json`：
    - 新增条目：`id` 顺序编号，`status` 置为 `"ready"`
-   - 必填字段：`province`（省份名，如「广东」）、`source_type`（真题 / 模拟题）、`year`、`type`、`difficulty`
+   - 必填字段：`province`（省份名，如「广东」）、`source_type`（真题 / 模拟题）、`year`、`type`、`difficulty`、`tags`（知识点关键词数组，如 ["判别式", "一元二次方程"]，供按知识点抽题）
    - `question` 用纯文本 + 简易记号（如 `x^2`、`\sqrt{2}`），公式尽量简单
    - `official_answer` 抄录官方答案
 4. 小批量试抽检（先 2 题确认单题成本）：
