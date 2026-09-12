@@ -11,6 +11,7 @@
 """
 import datetime as dt
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -36,6 +37,13 @@ def solve_letter(question: str):
     )
 
 
+def normalize(s: str) -> str:
+    """宽松归一化：去空白、统一标点，保留逗号等分隔符。"""
+    s = (s or "").strip()
+    s = s.replace("，", ",").replace("。", ".").replace("：", ":").replace("；", ";")
+    return re.sub(r"\s+", "", s)
+
+
 def main():
     if not CANDIDATES.exists():
         print("找不到候选题库：", CANDIDATES)
@@ -52,51 +60,80 @@ def main():
         if qid in existing_ids:
             print(f"[跳过] {qid} 已存在")
             continue
-        print(f"[验证中] {qid}: {c['question'][:40]}…")
-        answers = []
+        kind = c.get("kind", "choice")
+        print(f"[验证中] {qid}({kind}): {c['question'][:40]}…")
+        raw = []
         for i in range(n_solves):
             try:
-                answers.append(solve_letter(c["question"]).strip().upper())
+                if kind == "free":
+                    raw.append(
+                        client.chat(prompts.solve_final(c["question"]), temperature=0.2, max_tokens=64).strip()
+                    )
+                else:
+                    raw.append(solve_letter(c["question"]).strip().upper())
             except client.NoApiKeyError as e:
                 print("ERROR:", e)
                 sys.exit(1)
             except client.BudgetExceededError as e:
                 print("WARNING:", e, "—— 预算耗尽，停止。")
                 break
-        letters = [a[0] for a in answers if a and a[0] in "ABCD"]
-        unanimous = len(letters) == n_solves and len(set(letters)) == 1
-        official = (c.get("official_answer") or "").strip().upper()
-        status = "通过"
+
+        official = (c.get("official_answer") or "").strip()
+        if kind == "free":
+            norm = [normalize(a) for a in raw]
+            unanimous = len(norm) == n_solves and len(set(norm)) == 1
+            final = norm[0] if unanimous else ""
+            official_norm = normalize(official)
+        else:
+            letters = [a[0] for a in raw if a and a[0] in "ABCD"]
+            unanimous = len(letters) == n_solves and len(set(letters)) == 1
+            final = letters[0] if unanimous else ""
+            official_norm = official.upper()
+
         note = "AI 独立解答 5 次一致；官方答案待人工核对"
-        if unanimous and official:
-            if letters[0] == official:
-                note = "AI 独立解答 5 次一致，且与官方答案一致"
+        if unanimous and official_norm:
+            if kind == "free":
+                # 自由作答：表述形式多样，用 LLM 对拍判断实质一致
+                try:
+                    verdict = client.chat(prompts.judge(final, official)).strip()
+                except (client.NoApiKeyError, client.BudgetExceededError) as e:
+                    print("WARNING:", e)
+                    verdict = "无法判断"
+                if verdict == "一致":
+                    note = "AI 独立解答 5 次一致，且与官方答案对拍一致"
+                else:
+                    print(f"    ⚠️ 对拍判定 [{verdict}]：AI 共识 [{final}] vs 官方 [{official}]，拒绝入库")
+                    log["rejected"].append({"id": qid, "raw": raw, "official": official})
+                    continue
             else:
-                status = f"❌ AI 共识 {letters[0]} 与官方答案 {official} 不符，拒绝入库"
-                unanimous = False
-        print(f"    5 次答案：{answers} → {'✅ 一致通过' if unanimous else '❌ 不一致，拒绝入库'}")
+                if final == official_norm:
+                    note = "AI 独立解答 5 次一致，且与官方答案一致"
+                else:
+                    print(f"    ⚠️ AI 共识 [{final}] 与官方答案 [{official}] 不符，拒绝入库")
+                    log["rejected"].append({"id": qid, "raw": raw, "official": official})
+                    continue
+        print(f"    5 次答案：{raw} → {'✅ 一致通过' if unanimous else '❌ 不一致，拒绝入库'}")
         if not unanimous:
-            log["rejected"].append({"id": qid, "raw": answers, "official": official})
+            log["rejected"].append({"id": qid, "raw": raw, "official": official})
             continue
-        if unanimous:
-            bank["questions"].append(
-                {
-                    "id": qid,
-                    "status": "ready",
-                    "province": c["province"],
-                    "source_type": c["source_type"],
-                    "source": c["source"],
-                    "year": c["year"],
-                    "type": c["type"],
-                    "difficulty": c["difficulty"],
-                    "tags": c["tags"],
-                    "subject": c.get("subject", "数学"),
-                    "question": c["question"],
-                    "official_answer": official or letters[0],
-                    "verify": note,
-                }
-            )
-            log["verified"].append({"id": qid, "answer": official or letters[0], "raw": answers})
+        bank["questions"].append(
+            {
+                "id": qid,
+                "status": "ready",
+                "province": c["province"],
+                "source_type": c["source_type"],
+                "source": c["source"],
+                "year": c["year"],
+                "type": c["type"],
+                "difficulty": c["difficulty"],
+                "tags": c["tags"],
+                "subject": c.get("subject", "数学"),
+                "question": c["question"],
+                "official_answer": official_norm or final,
+                "verify": note,
+            }
+        )
+        log["verified"].append({"id": qid, "answer": official_norm or final, "raw": raw})
 
     bank_path.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
     log["time"] = dt.datetime.now().isoformat(timespec="seconds")

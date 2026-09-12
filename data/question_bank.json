@@ -171,6 +171,24 @@
       "question": "在下列几何体中，俯视图和左视图相同的是（ ）\nA. 圆锥\nB. 圆柱\nC. 正方体\nD. 三棱柱",
       "official_answer": "C",
       "verify": "AI 独立解答 5 次一致，且与官方答案一致"
+    },
+    {
+      "id": "demo-free-001",
+      "status": "ready",
+      "province": "通用",
+      "source_type": "样例题",
+      "source": "流水线自测样例题（非真题，验证自由作答题验证流程）",
+      "year": null,
+      "type": "解答题-解方程",
+      "difficulty": "基础",
+      "tags": [
+        "解一元二次方程",
+        "因式分解"
+      ],
+      "subject": "数学",
+      "question": "解方程：x^2 - 5x + 6 = 0。",
+      "official_answer": "x=2或x=3",
+      "verify": "AI 独立解答 5 次一致，且与官方答案对拍一致"
     }
   ]
 }
