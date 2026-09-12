@@ -1,5 +1,5 @@
 /* PWA 缓存策略：页面 HTML 网络优先（保证更新），静态资源缓存优先；不缓存 /api/ */
-const CACHE = 'tutor-v2';
+const CACHE = 'tutor-v3';
 
 self.addEventListener('install', () => self.skipWaiting());
 

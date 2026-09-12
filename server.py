@@ -206,10 +206,10 @@ def index():
     return render_template("index.html")
 
 
-@app.get("/sw.js")
-def sw_js():
-    """Service Worker 放在根路径，保证 scope 覆盖整个应用。"""
-    return app.send_static_file("sw.js")
+@app.get("/favicon.ico")
+def favicon():
+    """浏览器默认请求 /favicon.ico，返回图标避免 404。"""
+    return app.send_static_file("icon.svg")
 
 
 @app.get("/api/status")
@@ -302,8 +302,14 @@ def practice():
     if subject:
         pool = [q for q in pool if q.get("subject", "数学") == subject]
     if not pool:
+        if subject and not any(q.get("subject") == subject for q in bank.get("questions", [])):
+            return jsonify(
+                {"error": f"「{subject}」题库正在建设中，先试试数学吧；其他学科题目会陆续上线。"}
+            ), 404
         return jsonify(
-            {"error": f"题库中暂无可练的题（省份：{province or '不限'}，知识点：{tag or '不限'}）。"}
+            {
+                "error": f"题库中暂无可练的题（学科：{subject or '不限'}，省份：{province or '不限'}，知识点：{tag or '不限'}）。"
+            }
         ), 404
     q = random.choice(pool)
     # 只返回学生可见字段，不返回 official_answer
@@ -325,14 +331,21 @@ def practice():
 
 @app.get("/api/tags")
 def tags():
-    """题库里所有知识点标签（去重排序），供前端联想输入。"""
+    """题库里所有知识点标签（去重排序），可按学科过滤，供前端联想输入。"""
     if not config.QUESTION_BANK.exists():
         return jsonify({"list": []})
+    subject = (request.args.get("subject") or "").strip()
     try:
         bank = json.loads(config.QUESTION_BANK.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return jsonify({"list": []})
-    tag_set = {t for q in bank.get("questions", []) for t in (q.get("tags") or []) if t}
+    tag_set = {
+        t
+        for q in bank.get("questions", [])
+        if (not subject or q.get("subject", "数学") == subject)
+        for t in (q.get("tags") or [])
+        if t
+    }
     return jsonify({"list": sorted(tag_set)})
 
 

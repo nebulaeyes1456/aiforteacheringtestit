@@ -11,3 +11,6 @@ data/test_summaries.md
 data/vouchers.json
 tutor-deploy.tar.gz
 data/*.png
+
+data/raw/
+tools/

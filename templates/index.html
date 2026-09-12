@@ -7,20 +7,39 @@
 <link rel="manifest" href="/static/manifest.webmanifest">
 <meta name="theme-color" content="#2f6fed">
 <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.css">
-<script defer src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-<script defer src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js"></script>
+<script>
+  // KaTeX 主 CDN（BootCDN）失败时自动切换到 jsdelivr，避免数学公式渲染不出来
+  function katexFallback() {
+    var css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css';
+    document.head.appendChild(css);
+    var js = document.createElement('script');
+    js.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js';
+    js.async = true;
+    js.onload = function () {
+      var ar = document.createElement('script');
+      ar.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js';
+      ar.async = true;
+      document.head.appendChild(ar);
+    };
+    document.head.appendChild(js);
+  }
+</script>
+<link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.css" onerror="katexFallback()">
+<script defer src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/katex.min.js" onerror="katexFallback()"></script>
+<script defer src="https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.9/contrib/auto-render.min.js" onerror="katexFallback()"></script>
 <style>
   body { font-family: system-ui, "Microsoft YaHei", sans-serif; margin:0; background:#f5f6f8; color:#222; }
   header { background:#fff; border-bottom:1px solid #e3e5e8; padding:12px 16px; display:flex; justify-content:space-between; align-items:center; }
   h1 { font-size:17px; margin:0; }
-  #budget { font-size:12px; color:#666; }
   main { max-width:1100px; margin:0 auto; padding:16px; }
   .layout { display:flex; gap:16px; align-items:stretch; }
   .left { flex:0 0 340px; background:#fff; border:1px solid #e3e5e8; border-radius:10px; padding:16px; }
   .right { flex:1; min-width:0; background:#fff; border:1px solid #e3e5e8; border-radius:10px; padding:16px; display:flex; flex-direction:column; }
   h2 { font-size:15px; margin:0 0 10px; color:#333; }
   #chat { flex:1; min-height:420px; max-height:65vh; overflow:auto; background:#fafbfc; border-radius:8px; padding:12px; }
+  #answerArea { margin-bottom:10px; padding-bottom:10px; border-bottom:1px dashed #d5d8dd; }
   @media (max-width: 900px) { .layout { flex-direction:column; } .left { flex:auto; } }
   .msg { margin:10px 0; padding:10px 12px; border-radius:10px; max-width:85%; white-space:pre-wrap; word-break:break-word; }
   .coach { background:#eef3ff; }
@@ -47,7 +66,6 @@
   <h1>🧑‍🏫 追问式讲题教练 <span style="color:#999;font-weight:normal;font-size:12px">（B方案 MVP · 本地验证版）</span></h1>
   <div style="display:flex;align-items:center;gap:10px">
     <button id="btnInstall" class="sec" style="display:none">⬇️ 安装到桌面</button>
-    <div id="budget">加载预算…</div>
   </div>
 </header>
 <main>
@@ -105,10 +123,8 @@
     </div>
     <div class="right">
       <h2>💬 做题窗口</h2>
-      <div id="chat"></div>
-      <div id="hint" class="sys">👈 先点「🎲 随机练一题」抽一道题（或把题目粘贴到左侧），再点「开始讲题」，AI 老师会在这里一步步引导你做题。</div>
       <div id="answerArea" style="display:none">
-        <textarea id="answer" rows="2" placeholder="写出回答或疑问，也可点 🎤 语音输入（x^2、根号2 等普通写法即可）…"></textarea>
+        <textarea id="answer" rows="2" placeholder="在这里写你的回答或疑问，也可点 🎤 语音输入（x^2、根号2 等普通写法即可）…"></textarea>
         <div class="symrow" id="symA"></div>
         <div class="row">
           <button class="sec" onclick="voiceInput('answer')">🎤</button>
@@ -119,6 +135,8 @@
         </div>
         <div class="small" id="roundInfo"></div>
       </div>
+      <div id="hint" class="sys">👈 先点「🎲 随机练一题」抽一道题（或把题目粘贴到左侧），再点「开始讲题」，AI 老师会在这里一步步引导你做题。</div>
+      <div id="chat"></div>
     </div>
   </div>
 </main>
@@ -133,6 +151,40 @@ function getUid() {
     localStorage.setItem('tutor_uid', uid);
   }
   return uid;
+}
+
+// 归一化 AI 偶尔输出的双反斜杠 LaTeX（\\(...\\)、\\[...\\]），避免渲染失败
+function normLatex(s) {
+  return (s || '')
+    .replace(/\\\\\[/g, '\\[')
+    .replace(/\\\\\]/g, '\\]')
+    .replace(/\\\\\(/g, '\\(')
+    .replace(/\\\\\)/g, '\\)');
+}
+
+// 理科科目：AI 偶尔把公式写成普通文本（x^2、x2、1/2、\_），自动包成 $...$ 再渲染
+const MATHY_SUBJECTS = ['数学', '物理', '化学', '生物', '地理'];
+function beautifyMath(text) {
+  let t = String(text || '');
+  t = t.replace(/\\_/g, '_');
+  // 字母+一位数字 → 上标（x2 → x^2）；用前缀捕获代替后行断言，兼容旧浏览器
+  t = t.replace(/(^|[^A-Za-z0-9$\\])([A-Za-z])(\d)(?![A-Za-z0-9])/g, function (m, pre, a, b) {
+    return pre + '$' + a + '^' + b + '$';
+  });
+  // 变量幂次/下标：x^2、v_0、a^{n}
+  t = t.replace(/(^|[^A-Za-z0-9$\\])([A-Za-z])(\^\{?[0-9A-Za-z+\-.]+}?|_\{?[0-9A-Za-z+\-]+\}?)/g, function (m, pre, a, b) {
+    return pre + '$' + a + b + '$';
+  });
+  // 简单分数：1/2 → \frac{1}{2}
+  t = t.replace(/(^|[^A-Za-z0-9$])(\d+)\/(\d+)(?![A-Za-z0-9])/g, function (m, pre, a, b) {
+    return pre + '$\\frac{' + a + '}{' + b + '}$';
+  });
+  return t;
+}
+
+function currentSubject() {
+  const sel = document.getElementById('subject');
+  return (sel && sel.value) || '数学';
 }
 
 function renderMath(el) {
@@ -153,13 +205,28 @@ function renderMath(el) {
 
 function addMsg(text, cls) {
   const d = document.createElement('div');
-  d.className = 'msg ' + (cls || 'coach');
-  d.textContent = text;
+  const c = cls || 'coach';
+  d.className = 'msg ' + c;
+  let t = normLatex(text);
+  if (c === 'coach' && MATHY_SUBJECTS.indexOf(currentSubject()) >= 0) {
+    t = beautifyMath(t);
+  }
+  d.textContent = t;
   renderMath(d);
   chat.appendChild(d);
   chat.scrollTop = chat.scrollHeight;
   return d;
 }
+
+function clearWorkArea() {
+  chat.innerHTML = '';
+  document.getElementById('answer').value = '';
+}
+
+// KaTeX 加载完成后，把之前因脚本未就绪而没渲染的消息补渲染一遍
+window.addEventListener('load', () => {
+  document.querySelectorAll('.msg').forEach(el => renderMath(el));
+});
 
 function getKey() { return localStorage.getItem('tutor_key') || ''; }
 function setKey(k) { localStorage.setItem('tutor_key', k); }
@@ -177,10 +244,6 @@ async function api(path, body) {
 
 function refreshBudget() {
   fetch('/api/status', { headers: { 'X-Tutor-Uid': getUid(), 'X-Tutor-Key': getKey() } }).then(r => r.json()).then(j => {
-    const b = j.budget;
-    document.getElementById('budget').textContent =
-      '已用 ¥' + b.total_spent + ' / ¥' + b.budget + ' ｜ 今日 ¥' + b.spent_today;
-
     // 私有模式门禁：无有效兑换码时只显示兑换页
     const hasVoucher = j.voucher && j.voucher.status === 'active';
     if (j.mode === 'private' && !hasVoucher) {
@@ -231,6 +294,7 @@ document.getElementById('btnGateRedeem').onclick = () => doRedeem(document.getEl
 document.getElementById('btnStart').onclick = async () => {
   const q = document.getElementById('question').value.trim();
   if (!q) return addMsg('请先输入题目。', 'error');
+  resetForNewQuestion();
   addMsg(q, 'student');
   try {
     const r = await api('/api/start', { question: q, province: document.getElementById('province').value, grade: document.getElementById('grade').value, subject: document.getElementById('subject').value });
@@ -270,14 +334,28 @@ function setRound(r) {
     '已追问 ' + r.round + ' 轮' + (r.can_unlock ? '（可解锁完整讲解）' : '');
 }
 
+function resetForNewQuestion() {
+  // 换新题时清空做题窗口，避免上一题的聊天记录越积越长
+  clearWorkArea();
+  sessionId = null;
+  document.getElementById('answerArea').style.display = 'none';
+  document.getElementById('hint').style.display = 'block';
+  document.getElementById('roundInfo').textContent = '';
+  document.getElementById('btnUnlock').disabled = true;
+  document.getElementById('btnSimilar').disabled = true;
+  document.getElementById('btnSummary').disabled = true;
+}
+
 async function simpleAct(path) {
   if (!sessionId) return addMsg('请先开始讲题。', 'error');
   try {
     const r = await api(path, { session_id: sessionId });
-    addMsg(r.reply, 'coach');
     if (path === '/api/similar') {
+      resetForNewQuestion();
       document.getElementById('question').value = r.reply;
-      addMsg('▲ 上方已填入变式题，点「开始讲题」开启新引导', 'sys');
+      addMsg('🎯 变式题已填入左侧，点「开始讲题」开启新引导', 'sys');
+    } else {
+      addMsg(r.reply, 'coach');
     }
     refreshBudget();
   } catch (e) {
@@ -310,17 +388,54 @@ function loadGrades() {
   }).catch(() => {});
 }
 
-const MATH_SYMBOLS = ['²', '³', '√', 'Δ', '≥', '≤', '≠', '±', '×', '÷', '≈', '∞', 'π', '∠', '∥', '⊥', '1/2', 'x^2'];
+const SUBJECT_SYMBOLS = {
+  '数学': ['²', '³', '√', 'Δ', '≥', '≤', '≠', '±', '×', '÷', '≈', '∞', 'π', '∠', '∥', '⊥', '1/2', 'x^2'],
+  '物理': ['²', '³', '√', 'Δ', '≥', '≤', '≠', '≈', '×', '÷', 'π', 'ρ', 'θ', '°', '℃', 'Ω', 'μ', '1/2', 'x^2'],
+  '化学': ['₂', '₃', '√', 'Δ', '≥', '≈', '℃', '×', '÷', '→', '⇌', '↑', '↓', 'CO₂', 'H₂O', '1/2'],
+  '英语': [],
+  '语文': ['“”', '《》', '——', '……', '①', '②', '③'],
+  '生物': ['²', '√', 'Δ', '≈', '℃', '×', '→', '≥', '≤'],
+  '历史': ['→', '—', '《》', '①②③'],
+  '地理': ['²', '√', '≈', '℃', '°', '→', '×', '∠'],
+  '道法': ['“”', '《》', '①', '②', '③']
+};
 
-function buildSymBars() {
+const SUBJECT_TAG_HINTS = {
+  '数学': '如：判别式、二次函数',
+  '物理': '如：浮力、欧姆定律',
+  '化学': '如：溶解度、化学方程式',
+  '英语': '如：定语从句、时态',
+  '语文': '如：修辞手法、主旨',
+  '生物': '如：光合作用、遗传',
+  '历史': '如：辛亥革命、工业革命',
+  '地理': '如：气候类型、等高线',
+  '道法': '如：权利义务、依法治国'
+};
+
+const SUBJECT_Q_HINTS = {
+  '数学': '粘贴数学题或点 🎤 说题（x^2、根号2 等普通写法即可）…',
+  '物理': '粘贴物理题或点 🎤 说题（可用 x^2、√、ρ、Ω 等普通写法）…',
+  '化学': '粘贴化学题或点 🎤 说题（下标用普通数字，如 CO2、H2O）…',
+  '英语': '粘贴英语题或点 🎤 说题…',
+  '语文': '粘贴语文题或点 🎤 说题…',
+  '生物': '粘贴生物题或点 🎤 说题…',
+  '历史': '粘贴历史题或点 🎤 说题…',
+  '地理': '粘贴地理题或点 🎤 说题…',
+  '道法': '粘贴道法题或点 🎤 说题…'
+};
+
+function rebuildSymBars() {
+  const s = document.getElementById('subject').value || '数学';
+  const syms = SUBJECT_SYMBOLS[s] || [];
   ['symQ', 'symA'].forEach(id => {
     const bar = document.getElementById(id);
-    MATH_SYMBOLS.forEach(s => {
+    bar.innerHTML = '';
+    syms.forEach(sym => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'sym';
-      b.textContent = s;
-      b.onclick = () => insertSymbol(id === 'symQ' ? 'question' : 'answer', s);
+      b.textContent = sym;
+      b.onclick = () => insertSymbol(id === 'symQ' ? 'question' : 'answer', sym);
       bar.appendChild(b);
     });
   });
@@ -366,22 +481,12 @@ function voiceInput(targetId) {
   try { rec.start(); } catch (err) { addMsg('⚠️ 语音识别启动失败：' + err.message, 'error'); }
 }
 
-function loadSubjects() {
-  fetch('/api/subjects').then(r => r.json()).then(j => {
-    const sel = document.getElementById('subject');
-    (j.list || ['数学']).forEach(s => {
-      const o = document.createElement('option');
-      o.value = s; o.textContent = s;
-      if (s === (j.default || '数学')) o.selected = true;
-      sel.appendChild(o);
-    });
-  }).catch(() => {});
-}
-
-function loadTags() {
-  fetch('/api/tags').then(r => r.json()).then(j => {
+function loadTags(subject) {
+  fetch('/api/tags' + (subject ? '?subject=' + encodeURIComponent(subject) : '')).then(r => r.json()).then(j => {
     const dl = document.getElementById('tagList');
     const chips = document.getElementById('tagChips');
+    dl.innerHTML = '';
+    chips.innerHTML = '';
     (j.list || []).forEach((t, idx) => {
       const o = document.createElement('option');
       o.value = t;
@@ -394,7 +499,33 @@ function loadTags() {
         chips.appendChild(c);
       }
     });
+    if (!(j.list || []).length) {
+      chips.textContent = '该学科题库建设中，知识点标签将陆续补充';
+    }
   }).catch(() => {});
+}
+
+function applySubject() {
+  const s = document.getElementById('subject').value || '数学';
+  document.getElementById('tagInput').placeholder = SUBJECT_TAG_HINTS[s] || '输入知识点关键词';
+  document.getElementById('tagInput').value = '';
+  document.getElementById('question').placeholder = SUBJECT_Q_HINTS[s] || '粘贴题目或点 🎤 说题…';
+  rebuildSymBars();
+  loadTags(s);
+}
+
+function loadSubjects() {
+  fetch('/api/subjects').then(r => r.json()).then(j => {
+    const sel = document.getElementById('subject');
+    (j.list || ['数学']).forEach(s => {
+      const o = document.createElement('option');
+      o.value = s; o.textContent = s;
+      if (s === (j.default || '数学')) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.onchange = applySubject;
+    applySubject();
+  }).catch(() => { applySubject(); });
 }
 
 function drawQuestion(skip) {
@@ -412,9 +543,10 @@ function drawQuestion(skip) {
 document.getElementById('btnPractice').onclick = async () => {
   try {
     const q = await drawQuestion(false);
+    resetForNewQuestion();
     document.getElementById('question').value = q.question;
     const tagText = [q.province, q.source_type, q.year || '', q.type, (q.tags || []).join('/')].filter(Boolean).join(' · ');
-    addMsg('🎲 已抽取「' + tagText + '」', 'sys');
+    addMsg('🎲 已抽取「' + tagText + '」，点「开始讲题」开始', 'sys');
   } catch (e) {
     addMsg('⚠️ ' + e.message, 'error');
   }
@@ -423,9 +555,10 @@ document.getElementById('btnPractice').onclick = async () => {
 document.getElementById('btnSkip').onclick = async () => {
   try {
     const q = await drawQuestion(true);
+    resetForNewQuestion();
     document.getElementById('question').value = q.question;
     const tagText = [q.province, q.source_type, q.year || '', q.type].filter(Boolean).join(' · ');
-    addMsg('💪 已换下一题「' + tagText + '」', 'sys');
+    addMsg('💪 已换下一题「' + tagText + '」，点「开始讲题」开始', 'sys');
   } catch (e) {
     addMsg('⚠️ ' + e.message, 'error');
   }
@@ -450,12 +583,9 @@ document.getElementById('btnSummaryKp').onclick = async () => {
   }
 };
 
-loadTags();
-
 loadProvinces();
 loadGrades();
 loadSubjects();
-buildSymBars();
 
 document.getElementById('btnUnlock').onclick = () => simpleAct('/api/unlock');
 document.getElementById('btnSimilar').onclick = () => simpleAct('/api/similar');
