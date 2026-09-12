@@ -9,6 +9,7 @@
 流程：栏目列表分页 → 详情页 → rar 下载 → bsdtar 解压 → 清单存档 data/crawled_manifest.json
 """
 import argparse
+import html as html_mod
 import json
 import os
 import re
@@ -70,6 +71,12 @@ def fetch_html(url):
     return body.decode('gb18030', 'ignore')
 
 
+def clean_title(t):
+    t = re.sub(r'<[^>]+>', '', t or '')
+    t = html_mod.unescape(t)
+    return t.strip()
+
+
 def list_articles(col_path):
     """遍历栏目列表分页，返回 [(标题, 详情URL)]。"""
     articles = []
@@ -84,8 +91,9 @@ def list_articles(col_path):
             print(f'  分页获取失败 {pu}: {type(e).__name__}')
             break
         found = re.findall(r'<a[^>]+href="([^"]+\.html)"[^>]*>\s*(.{6,80}?)\s*</a>', txt, re.S)
-        new = [(t.strip(), h if h.startswith('http') else BASE + h)
+        new = [(clean_title(t), h if h.startswith('http') else BASE + h)
                for h, t in found if '/a/sj' in h and 'list_' not in h]
+        new = [(t, u) for t, u in new if t and len(t) >= 4]
         if not new:
             break
         articles.extend(new)
@@ -93,13 +101,14 @@ def list_articles(col_path):
         if f'list_{pageno + 1}' not in txt and f'index_{pageno + 1}' not in txt:
             break
         time.sleep(0.6)
-    # 去重保序
-    seen, out = set(), []
+    # 去重保序（同一 URL 保留标题更长的一次）
+    best, seen = {}, []
     for t, u in articles:
+        if u not in best or len(t) > len(best[u]):
+            best[u] = t
         if u not in seen:
-            seen.add(u)
-            out.append((t, u))
-    return out
+            seen.append(u)
+    return [(best[u], u) for u in seen]
 
 
 def year_of(title):
@@ -149,7 +158,7 @@ def main():
     ap.add_argument('--col', default='')
     ap.add_argument('--subject', default='', help='学科名（数学/物理/化学/英语/语文/生物/历史/地理/道法），爬全科栏目')
     ap.add_argument('--exam', default='', help='只保留含该词的标题（如：高考/中考）')
-    ap.add_argument('--years', default='2020,2021,2022,2023,2024,2025,2026')
+    ap.add_argument('--years', default='2011,2012,2013,2014,2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025,2026')
     ap.add_argument('--max', type=int, default=0, help='0=不限量')
     ap.add_argument('--list-cols', action='store_true')
     args = ap.parse_args()

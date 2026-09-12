@@ -243,36 +243,36 @@ def knowledge_summary(topic: str, province: str = "通用", grade: str = "通用
 
 # ---------- 质量抽检用（项目书 §6） ----------
 
-def solve(question: str):
+def solve(question: str, subject: str = "数学"):
     """抽检用：独立完整解题（情境化题目先拆解背景本质）。"""
     return [
         {
             "role": "system",
-            "content": "你是数学解题器。请完整解答下面的题，步骤清晰、最终答案明确，数学式用 LaTeX。"
-            "若题目有生活/科学等背景包装，请先拆解背景、点明其数学本质，再作答。",
+            "content": f"你是{subject}解题器。请完整解答下面的题，步骤清晰、最终答案明确，"
+            "公式按学科规范书写。若题目有生活/科学等背景包装，请先拆解背景、点明其本质，再作答。",
         },
         {"role": "user", "content": question},
     ]
 
 
-def solve_final(question: str):
+def solve_final(question: str, subject: str = "数学"):
     """抽检用：只输出最终答案（用于多解一致性核验）。"""
     return [
         {
             "role": "system",
-            "content": "你是数学解题器。请解下面的题，只输出最终答案本身（数字/表达式/选项字母），"
-            "不要写过程，不要解释。若题目有背景包装，先拆解出数学本质再算。",
+            "content": f"你是{subject}解题器。请解下面的题，只输出最终答案本身（数字/表达式/选项字母），"
+            "不要写过程，不要解释。若题目有背景包装，先拆解出本质再算。",
         },
         {"role": "user", "content": question},
     ]
 
 
-def judge(model_answer: str, official_answer: str):
+def judge(model_answer: str, official_answer: str, subject: str = "数学"):
     """抽检用：LLM-judge 对拍，只输出一个词。"""
     return [
         {
             "role": "system",
-            "content": "你是数学答案对拍器。只比较最终结果是否实质一致（不看过程措辞）。"
+            "content": f"你是{subject}答案对拍器。只比较最终结果是否实质一致（不看过程措辞）。"
             "只输出一个词：一致 / 不一致 / 无法判断。",
         },
         {

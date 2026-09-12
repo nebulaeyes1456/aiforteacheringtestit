@@ -16,6 +16,13 @@ import sys
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+# 控制台/重定向输出统一 UTF-8，避免 GBK 编码崩溃
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except Exception:
+        pass
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # app/
 
 from tutor import client, config, prompts
@@ -24,12 +31,12 @@ CANDIDATES = config.DATA_DIR / "candidates.json"
 SOLVE_WORKERS = 5  # 每题 5 次独立解答并发执行
 
 
-def solve_letter(question: str):
+def solve_letter(question: str, subject: str = "数学"):
     return client.chat(
         [
             {
                 "role": "system",
-                "content": "你是数学解题器。请解下面的选择题，只输出最终答案的选项字母（A/B/C/D 其中一个），"
+                "content": f"你是{subject}解题器。请解下面的选择题，只输出最终答案的选项字母（A/B/C/D 其中一个），"
                 "不要输出任何其他内容。",
             },
             {"role": "user", "content": question},
@@ -46,13 +53,18 @@ def normalize(s: str) -> str:
     return re.sub(r"\s+", "", s)
 
 
-def solve_many(question: str, kind: str, n: int = SOLVE_WORKERS):
-    """并发独立解答 n 次。返回 (结果列表, 是否预算耗尽)。"""
+BAD_ANSWER_RE = re.compile(
+    r'题目不完整|题目缺失|信息不足|无法(判断|确定|求解)|缺少|不完整|题意不清|缺条件|条件不足|题干不全'
+)
+
+
+def solve_many(question: str, kind: str, subject: str = "数学", n: int = SOLVE_WORKERS):
+    """并发独立解答 n 次。返回 (结果列表, 错误信息列表)。"""
     def one(_):
         try:
             if kind == "free":
-                return ("ok", client.chat(prompts.solve_final(question), temperature=0.2, max_tokens=64).strip())
-            return ("ok", solve_letter(question).strip().upper())
+                return ("ok", client.chat(prompts.solve_final(question, subject), temperature=0.2, max_tokens=64).strip())
+            return ("ok", solve_letter(question, subject).strip().upper())
         except client.NoApiKeyError:
             raise
         except client.BudgetExceededError as e:
@@ -75,19 +87,37 @@ def main():
     bank_path = config.QUESTION_BANK
     bank = json.loads(bank_path.read_text(encoding="utf-8"))
     existing_ids = {q["id"] for q in bank.get("questions", [])}
-    log = {"verified": [], "rejected": []}
+    log = {"verified": [], "rejected": [], "time": dt.datetime.now().isoformat(timespec="seconds")}
+    log_path = config.DATA_DIR / "verify_log.json"
+    # 跳过历史已拒绝的题（避免重跑反复花钱）
+    if log_path.exists():
+        try:
+            old_log = json.loads(log_path.read_text(encoding="utf-8"))
+            rejected_ids = {r["id"] for r in old_log.get("rejected", [])}
+        except json.JSONDecodeError:
+            rejected_ids = set()
+    else:
+        rejected_ids = set()
+
+    def flush():
+        bank_path.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
+        log_path.write_text(json.dumps(log, ensure_ascii=False, indent=2), encoding="utf-8")
 
     n_solves = 5
+    processed = 0
 
     for c in cands:
         qid = c["id"]
         if qid in existing_ids:
             print(f"[跳过] {qid} 已存在")
             continue
+        if qid in rejected_ids:
+            print(f"[跳过] {qid} 历史已拒绝")
+            continue
         kind = c.get("kind", "choice")
         print(f"[验证中] {qid}({kind}): {c['question'][:40]}…")
         try:
-            raw, err_msgs = solve_many(c["question"], kind)
+            raw, err_msgs = solve_many(c["question"], kind, c.get("subject", "数学"))
         except client.NoApiKeyError as e:
             print("ERROR:", e)
             sys.exit(1)
@@ -103,6 +133,14 @@ def main():
             unanimous = len(norm) == n_solves and len(set(norm)) == 1
             final = norm[0] if unanimous else ""
             official_norm = normalize(official)
+            # 残缺口拦截：AI 一致判定题目缺公式/条件 → 拒绝
+            if unanimous and raw and BAD_ANSWER_RE.search(raw[0] or ""):
+                print(f"    [REJECT] AI 判定题目残缺（{raw[0][:40]}），拒绝入库")
+                log["rejected"].append({"id": qid, "raw": raw, "official": official})
+                processed += 1
+                if processed % 25 == 0:
+                    flush()
+                continue
         else:
             letters = [a[0] for a in raw if a and a[0] in "ABCD"]
             unanimous = len(letters) == n_solves and len(set(letters)) == 1
@@ -114,7 +152,7 @@ def main():
             if kind == "free":
                 # 自由作答：表述形式多样，用 LLM 对拍判断实质一致
                 try:
-                    verdict = client.chat(prompts.judge(final, official)).strip()
+                    verdict = client.chat(prompts.judge(final, official, c.get("subject", "数学"))).strip()
                 except (client.NoApiKeyError, client.BudgetExceededError) as e:
                     print("WARNING:", e)
                     verdict = "无法判断"
@@ -134,6 +172,9 @@ def main():
         print(f"    5 次答案：{raw} → {'[PASS] 一致通过' if unanimous else '[REJECT] 不一致，拒绝入库'}")
         if not unanimous:
             log["rejected"].append({"id": qid, "raw": raw, "official": official})
+            processed += 1
+            if processed % 25 == 0:
+                flush()
             continue
         bank["questions"].append(
             {
@@ -153,10 +194,12 @@ def main():
             }
         )
         log["verified"].append({"id": qid, "answer": official_norm or final, "raw": raw})
+        processed += 1
+        if processed % 25 == 0:
+            flush()
 
     bank_path.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
     log["time"] = dt.datetime.now().isoformat(timespec="seconds")
-    log_path = config.DATA_DIR / "verify_log.json"
     log_path.write_text(json.dumps(log, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"\n入库 {len(log['verified'])} 道，拒绝 {len(log['rejected'])} 道。")
     print("验证记录：", log_path)
