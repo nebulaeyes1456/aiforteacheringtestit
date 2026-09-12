@@ -10,7 +10,11 @@
       "year": null,
       "type": "代数-中档易错",
       "difficulty": "中档",
-      "tags": ["判别式", "一元二次方程", "参数取值范围"],
+      "tags": [
+        "判别式",
+        "一元二次方程",
+        "参数取值范围"
+      ],
       "question": "已知关于 x 的一元二次方程 x^2 - 2(k-1)x + k^2 = 0 有两个不相等的实数根，求 k 的取值范围。",
       "official_answer": "k < 1/2"
     },
@@ -23,7 +27,10 @@
       "year": null,
       "type": "函数-压轴题第一问",
       "difficulty": "中档",
-      "tags": ["二次函数", "待定系数法"],
+      "tags": [
+        "二次函数",
+        "待定系数法"
+      ],
       "question": "已知抛物线 y = ax^2 + bx + 3 经过点 (1, 0) 和 (3, 0)，求 a 与 b 的值。",
       "official_answer": "a = 1，b = -4"
     },
@@ -36,7 +43,10 @@
       "year": null,
       "type": "函数-概念易错",
       "difficulty": "中档",
-      "tags": ["二次函数", "函数定义"],
+      "tags": [
+        "二次函数",
+        "函数定义"
+      ],
       "question": "若函数 y = (m-3)x^(m^2-7) 是二次函数，求 m 的值。",
       "official_answer": "m = -3"
     },
@@ -49,9 +59,82 @@
       "year": 2025,
       "type": "代数-中档易错",
       "difficulty": "中档",
-      "tags": ["一元二次方程", "代数式变形", "整体代入"],
+      "tags": [
+        "一元二次方程",
+        "代数式变形",
+        "整体代入"
+      ],
       "question": "已知 a^2 - 3a + 1 = 0，求 a^2 + 1/a^2 的值。",
       "official_answer": "7"
+    },
+    {
+      "id": "beijing2026-001",
+      "status": "ready",
+      "province": "北京",
+      "source_type": "真题",
+      "source": "2026年北京中考数学（公开转载）",
+      "year": 2026,
+      "type": "选择题-中心对称",
+      "difficulty": "基础",
+      "tags": [
+        "中心对称图形",
+        "图形性质"
+      ],
+      "question": "下列图形中，是中心对称图形的是（ ）\nA. 三角形\nB. 直角三角形\nC. 长方形\nD. 半圆形",
+      "official_answer": "C",
+      "verify": "AI 独立解答 5 次结果一致；官方答案待人工核对"
+    },
+    {
+      "id": "beijing2026-002",
+      "status": "ready",
+      "province": "北京",
+      "source_type": "真题",
+      "source": "2026年北京中考数学（公开转载）",
+      "year": 2026,
+      "type": "选择题-角度计算",
+      "difficulty": "基础",
+      "tags": [
+        "余角",
+        "角度计算"
+      ],
+      "question": "如图，将三角尺的直角顶点放在直线 l 上，∠1 与 ∠2 互为余角。若 ∠1 = 48°，则 ∠2 的大小为（ ）\nA. 30°\nB. 42°\nC. 45°\nD. 48°",
+      "official_answer": "B",
+      "verify": "AI 独立解答 5 次结果一致；官方答案待人工核对"
+    },
+    {
+      "id": "beijing2026-003",
+      "status": "ready",
+      "province": "北京",
+      "source_type": "真题",
+      "source": "2026年北京中考数学（公开转载）",
+      "year": 2026,
+      "type": "选择题-数轴与实数",
+      "difficulty": "基础",
+      "tags": [
+        "数轴",
+        "实数比较",
+        "绝对值"
+      ],
+      "question": "实数 a、b 在数轴上的位置：a 位于 -2 与 -1 之间，b 位于 2 与 3 之间。下列结论中正确的是（ ）\nA. a > b\nB. -a > b\nC. |a| = -a\nD. ab > 0",
+      "official_answer": "C",
+      "verify": "AI 独立解答 5 次结果一致；官方答案待人工核对"
+    },
+    {
+      "id": "beijing2026-004",
+      "status": "ready",
+      "province": "北京",
+      "source_type": "真题",
+      "source": "2026年北京中考数学（公开转载）",
+      "year": 2026,
+      "type": "选择题-概率",
+      "difficulty": "基础",
+      "tags": [
+        "概率",
+        "简单随机事件"
+      ],
+      "question": "一个不透明的袋子中仅有 5 个球，其中 1 个白球、1 个黄球，其余都是红球，这 5 个球除颜色外无其他差别。从袋子中随机摸出一个球，摸出的球是红球的概率是（ ）\nA. 1/3\nB. 2/3\nC. 1/5\nD. 3/5",
+      "official_answer": "D",
+      "verify": "AI 独立解答 5 次结果一致；官方答案待人工核对"
     }
   ]
 }

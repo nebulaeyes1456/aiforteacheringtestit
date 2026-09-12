@@ -1,0 +1,50 @@
+{
+  "verified": [
+    {
+      "id": "beijing2026-001",
+      "answer": "C",
+      "raw": [
+        "C",
+        "C",
+        "C",
+        "C",
+        "C"
+      ]
+    },
+    {
+      "id": "beijing2026-002",
+      "answer": "B",
+      "raw": [
+        "B",
+        "B",
+        "B",
+        "B",
+        "B"
+      ]
+    },
+    {
+      "id": "beijing2026-003",
+      "answer": "C",
+      "raw": [
+        "C",
+        "C",
+        "C",
+        "C",
+        "C"
+      ]
+    },
+    {
+      "id": "beijing2026-004",
+      "answer": "D",
+      "raw": [
+        "D",
+        "D",
+        "D",
+        "D",
+        "D"
+      ]
+    }
+  ],
+  "rejected": [],
+  "time": "2026-09-12T14:10:45"
+}
