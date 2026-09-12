@@ -381,6 +381,7 @@ async function doRedeem(inputEl, msgEl) {
     if (!r.ok) throw new Error(j.error || '兑换失败');
     setKey(key);
     if (msgEl) msgEl.textContent = '✅ 兑换成功：剩余 ' + j.remaining_hours + ' 小时';
+    syncNb().catch(() => {});
     refreshBudget();
   } catch (e) {
     if (msgEl) msgEl.textContent = '⚠️ ' + e.message;
@@ -708,8 +709,10 @@ document.getElementById('btnSummaryKp').onclick = async () => {
 loadProvinces();
 loadGrades();
 loadSubjects();
+// 自动扫描本地错题索引（含兑换码命名空间合并上传）
+syncNb().catch(() => {});
 
-// ---------- 错题本（永久保存；查看/删除免费，重练时 AI 才计费） ----------
+// ---------- 错题本（本地索引 + 服务端同步；查看/删除免费，重练时 AI 才计费） ----------
 async function nbFetch(path, body) {
   const opts = {
     method: body ? 'POST' : 'GET',
@@ -720,6 +723,61 @@ async function nbFetch(path, body) {
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
   return j;
+}
+
+// 本地索引文件：按命名空间（兑换码 key / 设备 uid）存在浏览器本地
+function nbNs() {
+  const k = getKey();
+  return k ? ('key:' + k) : ('uid:' + getUid());
+}
+function nbLocalLoad() {
+  try { return JSON.parse(localStorage.getItem('tutor_nb_' + nbNs()) || '[]'); } catch (e) { return []; }
+}
+function nbLocalSave(list) {
+  try { localStorage.setItem('tutor_nb_' + nbNs(), JSON.stringify(list)); } catch (e) {}
+}
+function nbMerge(a, b) {
+  // 按题目文字去重，b 中的记录优先保留
+  const seen = new Set();
+  const out = [];
+  [].concat(b, a).forEach(function (it) {
+    if (!it.question || seen.has(it.question)) return;
+    seen.add(it.question);
+    out.push(it);
+  });
+  return out;
+}
+
+async function syncNb() {
+  // 每次进入（含兑换码登录）自动扫描本地索引：本地与服务端合并，本地独有项上传
+  try {
+    const j = await nbFetch('/api/notebook');
+    let merged = nbMerge(nbLocalLoad(), j.list || []);
+    // 兑换后命名空间切换：把设备 uid 下的本地错题并入码下
+    if (getKey()) {
+      let old = [];
+      try { old = JSON.parse(localStorage.getItem('tutor_nb_uid:' + getUid()) || '[]'); } catch (e) {}
+      if (old.length) {
+        merged = nbMerge(old, merged);
+        localStorage.removeItem('tutor_nb_uid:' + getUid());
+      }
+    }
+    const serverTexts = new Set((j.list || []).map(x => x.question));
+    const uploads = merged.filter(x => !serverTexts.has(x.question));
+    for (const it of uploads.slice(0, 50)) {
+      await nbFetch('/api/notebook/save', {
+        question: it.question, subject: it.subject || '数学',
+        province: it.province || '通用', grade: it.grade || '通用', note: it.note || ''
+      }).catch(() => {});
+    }
+    nbLocalSave(merged);
+    document.getElementById('btnNotebook').textContent = merged.length
+      ? ('📕 错题本（' + merged.length + ' 道，查看不耗时）')
+      : '📕 错题本（永久保存，查看不耗时）';
+    return merged;
+  } catch (e) {
+    return nbLocalLoad();
+  }
 }
 
 function renderNb(list) {
@@ -776,13 +834,9 @@ function renderNb(list) {
 }
 
 async function openNb() {
-  try {
-    const j = await nbFetch('/api/notebook');
-    renderNb(j.list || []);
-    document.getElementById('nbModal').style.display = 'block';
-  } catch (e) {
-    addMsg('⚠️ ' + e.message, 'error');
-  }
+  const list = await syncNb();
+  renderNb(list);
+  document.getElementById('nbModal').style.display = 'block';
 }
 
 function closeNb() {
@@ -792,16 +846,31 @@ function closeNb() {
 async function saveCurrentToNb() {
   const q = document.getElementById('question').value.trim();
   if (!q) return addMsg('⚠️ 左侧还没有题目，先抽一题或粘贴题目再存。', 'error');
+  const entry = {
+    id: 'L' + Date.now().toString(36),
+    question: q,
+    subject: document.getElementById('subject').value,
+    province: document.getElementById('province').value,
+    grade: document.getElementById('grade').value,
+    added_at: new Date().toISOString().slice(0, 19)
+  };
+  // 先写本地索引（离线也不丢），再同步服务端
+  const local = nbLocalLoad();
+  if (!local.some(x => x.question === q)) {
+    local.push(entry);
+    nbLocalSave(local);
+  }
   try {
     const r = await nbFetch('/api/notebook/save', {
       question: q,
-      subject: document.getElementById('subject').value,
-      province: document.getElementById('province').value,
-      grade: document.getElementById('grade').value
+      subject: entry.subject,
+      province: entry.province,
+      grade: entry.grade
     });
     addMsg(r.duplicate ? '📕 这题已经在错题本里了' : '✅ 已存入错题本，随时可重练', 'sys');
+    syncNb().catch(() => {});
   } catch (e) {
-    addMsg('⚠️ ' + e.message, 'error');
+    addMsg('📕 已保存到本机（联网后自动同步）', 'sys');
   }
 }
 

@@ -13,6 +13,7 @@ import datetime as dt
 import json
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # app/
@@ -20,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))  # app/
 from tutor import client, config, prompts
 
 CANDIDATES = config.DATA_DIR / "candidates.json"
+SOLVE_WORKERS = 5  # 每题 5 次独立解答并发执行
 
 
 def solve_letter(question: str):
@@ -44,6 +46,27 @@ def normalize(s: str) -> str:
     return re.sub(r"\s+", "", s)
 
 
+def solve_many(question: str, kind: str, n: int = SOLVE_WORKERS):
+    """并发独立解答 n 次。返回 (结果列表, 是否预算耗尽)。"""
+    def one(_):
+        try:
+            if kind == "free":
+                return ("ok", client.chat(prompts.solve_final(question), temperature=0.2, max_tokens=64).strip())
+            return ("ok", solve_letter(question).strip().upper())
+        except client.NoApiKeyError:
+            raise
+        except client.BudgetExceededError as e:
+            return ("err", str(e))
+        except Exception as e:
+            return ("err", f"{type(e).__name__}: {str(e)[:80]}")
+
+    with ThreadPoolExecutor(max_workers=n) as ex:
+        results = list(ex.map(one, range(n)))
+    ok_vals = [v for s, v in results if s == "ok"]
+    err_msgs = [v for s, v in results if s == "err"]
+    return ok_vals, err_msgs
+
+
 def main():
     if not CANDIDATES.exists():
         print("找不到候选题库：", CANDIDATES)
@@ -53,6 +76,7 @@ def main():
     bank = json.loads(bank_path.read_text(encoding="utf-8"))
     existing_ids = {q["id"] for q in bank.get("questions", [])}
     log = {"verified": [], "rejected": []}
+
     n_solves = 5
 
     for c in cands:
@@ -62,20 +86,15 @@ def main():
             continue
         kind = c.get("kind", "choice")
         print(f"[验证中] {qid}({kind}): {c['question'][:40]}…")
-        raw = []
-        for i in range(n_solves):
-            try:
-                if kind == "free":
-                    raw.append(
-                        client.chat(prompts.solve_final(c["question"]), temperature=0.2, max_tokens=64).strip()
-                    )
-                else:
-                    raw.append(solve_letter(c["question"]).strip().upper())
-            except client.NoApiKeyError as e:
-                print("ERROR:", e)
-                sys.exit(1)
-            except client.BudgetExceededError as e:
-                print("WARNING:", e, "—— 预算耗尽，停止。")
+        try:
+            raw, err_msgs = solve_many(c["question"], kind)
+        except client.NoApiKeyError as e:
+            print("ERROR:", e)
+            sys.exit(1)
+        if err_msgs:
+            print(f"    WARNING: {len(err_msgs)} 次调用失败（{err_msgs[0][:80]}）")
+            if any("预算" in m or "budget" in m.lower() for m in err_msgs):
+                print("    预算耗尽，停止。")
                 break
 
         official = (c.get("official_answer") or "").strip()
@@ -102,17 +121,17 @@ def main():
                 if verdict == "一致":
                     note = "AI 独立解答 5 次一致，且与官方答案对拍一致"
                 else:
-                    print(f"    ⚠️ 对拍判定 [{verdict}]：AI 共识 [{final}] vs 官方 [{official}]，拒绝入库")
+                    print(f"    [WARN] 对拍判定 [{verdict}]：AI 共识 [{final}] vs 官方 [{official}]，拒绝入库")
                     log["rejected"].append({"id": qid, "raw": raw, "official": official})
                     continue
             else:
                 if final == official_norm:
                     note = "AI 独立解答 5 次一致，且与官方答案一致"
                 else:
-                    print(f"    ⚠️ AI 共识 [{final}] 与官方答案 [{official}] 不符，拒绝入库")
+                    print(f"    [WARN] AI 共识 [{final}] 与官方答案 [{official}] 不符，拒绝入库")
                     log["rejected"].append({"id": qid, "raw": raw, "official": official})
                     continue
-        print(f"    5 次答案：{raw} → {'✅ 一致通过' if unanimous else '❌ 不一致，拒绝入库'}")
+        print(f"    5 次答案：{raw} → {'[PASS] 一致通过' if unanimous else '[REJECT] 不一致，拒绝入库'}")
         if not unanimous:
             log["rejected"].append({"id": qid, "raw": raw, "official": official})
             continue
