@@ -17,6 +17,27 @@ app = Flask(__name__)
 SESSIONS = {}  # session_id -> engine.Session
 SESSION_META = {}  # session_id -> {"key": 兑换码, "last": 上次活动时间}
 
+_BANK_CACHE = {"mtime": None, "data": None}  # 题库内存缓存，按文件 mtime 失效
+
+
+def _bank() -> dict:
+    """题库内存缓存：避免每次请求都解析大 JSON（题库长大后尤其重要）。"""
+    path = config.QUESTION_BANK
+    if not path.exists():
+        _BANK_CACHE["mtime"] = None
+        _BANK_CACHE["data"] = {"questions": []}
+        return _BANK_CACHE["data"]
+    mtime = path.stat().st_mtime
+    if _BANK_CACHE["data"] is not None and _BANK_CACHE["mtime"] == mtime:
+        return _BANK_CACHE["data"]
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        data = {"questions": []}
+    _BANK_CACHE["mtime"] = mtime
+    _BANK_CACHE["data"] = data
+    return data
+
 
 # ---------- 内测成本控制（每人限额 + 人数上限） ----------
 
@@ -290,10 +311,7 @@ def practice():
         _stat("skip_question")
     if not config.QUESTION_BANK.exists():
         return jsonify({"error": "题库尚未建立，请先按 scripts/fetch_papers.md 采集题目。"}), 404
-    try:
-        bank = json.loads(config.QUESTION_BANK.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return jsonify({"error": "题库文件格式错误，请检查 data/question_bank.json。"}), 500
+    bank = _bank()
     pool = [q for q in bank.get("questions", []) if q.get("status") == "ready"]
     if province and province != "通用":
         pool = [q for q in pool if q.get("province") == province]
@@ -335,10 +353,7 @@ def tags():
     if not config.QUESTION_BANK.exists():
         return jsonify({"list": []})
     subject = (request.args.get("subject") or "").strip()
-    try:
-        bank = json.loads(config.QUESTION_BANK.read_text(encoding="utf-8"))
-    except json.JSONDecodeError:
-        return jsonify({"list": []})
+    bank = _bank()
     tag_set = {
         t
         for q in bank.get("questions", [])
