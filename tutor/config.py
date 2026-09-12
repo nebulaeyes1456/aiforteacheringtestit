@@ -18,6 +18,7 @@ DATA_DIR = BASE_DIR / "data"
 USAGE_FILE = DATA_DIR / "usage.json"
 STATS_FILE = DATA_DIR / "stats.json"
 QUESTION_BANK = DATA_DIR / "question_bank.json"
+NOTEBOOK_FILE = DATA_DIR / "notebooks.json"  # 错题本（按兑换码/设备隔离存储）
 
 # ---------- 模型 ----------
 API_KEY_ENV = "DEEPSEEK_API_KEY"

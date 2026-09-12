@@ -166,6 +166,42 @@ def _pre_check(sid: str):
         _ensure_user(_uid())
 
 
+# ---------- 错题本（纯数据功能：不调用 AI、不扣时长，长期保留） ----------
+
+def _nb_namespace() -> str:
+    """错题本归属：有兑换码按码隔离（换设备也能看到），否则按设备 uid。"""
+    k = _key()
+    if k:
+        return "key:" + k
+    u = _uid()
+    return ("uid:" + u) if u else "uid:anon"
+
+
+def _load_nb():
+    if config.NOTEBOOK_FILE.exists():
+        try:
+            return json.loads(config.NOTEBOOK_FILE.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            pass
+    return {"notebooks": {}}
+
+
+def _save_nb(data):
+    config.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    config.NOTEBOOK_FILE.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
+
+
+def _nb_gate():
+    """错题本访问门槛：私有模式需有效兑换码；不产生任何费用。"""
+    if config.ACCESS_MODE == "private":
+        v = _get_voucher(_key())
+        if not v:
+            raise ValueError("本服务仅限已购用户使用，请先输入兑换码。")
+        _check_voucher(v)
+
+
 def _after_call(sid: str):
     """密钥用户：按两次交互间的实际经过时间扣时长，挂机超过上限的部分不计费。"""
     meta = SESSION_META.get(sid)
@@ -466,6 +502,97 @@ def unlock():
         _post_call(sid)
         _stat("unlock")
         return jsonify({"reply": text})
+
+    return _guard(run)
+
+
+@app.post("/api/answer")
+def answer():
+    """直接看答案：随时可用的完整讲解（与解锁同逻辑，单独埋点）。"""
+    body = request.get_json(silent=True) or {}
+    s = _get_session(body)
+    if not s:
+        return jsonify({"error": "会话不存在或已过期"}), 404
+    sid = body.get("session_id")
+
+    def run():
+        _pre_check(sid)
+        text = s.unlock()
+        _post_call(sid)
+        _stat("answer_direct")
+        return jsonify({"reply": text})
+
+    return _guard(run)
+
+
+@app.get("/api/notebook")
+def notebook_list():
+    def run():
+        _nb_gate()
+        data = _load_nb()
+        ns = _nb_namespace()
+        u = _uid()
+        # 兑换码用户首次进入：把设备 uid 下的错题迁移到码名下（只迁一次）
+        if ns.startswith("key:") and u and data["notebooks"].get("uid:" + u):
+            if not data["notebooks"].get(ns):
+                data["notebooks"][ns] = data["notebooks"]["uid:" + u]
+                _save_nb(data)
+        items = sorted(
+            data["notebooks"].get(ns, []),
+            key=lambda x: x.get("added_at", ""),
+            reverse=True,
+        )
+        return jsonify({"list": items})
+
+    return _guard(run)
+
+
+@app.post("/api/notebook/save")
+def notebook_save():
+    body = request.get_json(silent=True) or {}
+    question = (body.get("question") or "").strip()
+    if not question:
+        return jsonify({"error": "题目不能为空"}), 400
+
+    def run():
+        _nb_gate()
+        data = _load_nb()
+        ns = _nb_namespace()
+        items = data["notebooks"].setdefault(ns, [])
+        if any(q.get("question") == question for q in items):
+            return jsonify({"ok": True, "duplicate": True})
+        items.append(
+            {
+                "id": uuid.uuid4().hex[:12],
+                "question": question[:2000],
+                "subject": (body.get("subject") or "").strip() or "数学",
+                "province": (body.get("province") or "").strip() or "通用",
+                "grade": (body.get("grade") or "").strip() or "通用",
+                "note": (body.get("note") or "").strip()[:200],
+                "added_at": dt.datetime.now().isoformat(timespec="seconds"),
+                "review_count": 0,
+            }
+        )
+        _save_nb(data)
+        _stat("notebook_save")
+        return jsonify({"ok": True, "count": len(items)})
+
+    return _guard(run)
+
+
+@app.post("/api/notebook/remove")
+def notebook_remove():
+    body = request.get_json(silent=True) or {}
+    nid = (body.get("id") or "").strip()
+
+    def run():
+        _nb_gate()
+        data = _load_nb()
+        ns = _nb_namespace()
+        items = data["notebooks"].get(ns, [])
+        data["notebooks"][ns] = [q for q in items if q.get("id") != nid]
+        _save_nb(data)
+        return jsonify({"ok": True})
 
     return _guard(run)
 
