@@ -1,0 +1,279 @@
+﻿== 栏目 数学全部 年份过滤 [2020, 2021, 2022, 2023, 2024, 2025, 2026]，最多 不限 份 ==
+  列表共 98 篇
+  [2023] 2023年新课标全国Ⅱ卷数学真题（
+python : Traceback (most recent call last):
+所在位置 行:1 字符: 150
++ ... ation $app; python scripts\crawl_shijuan.py --subject $s 2>&1 | Out-F ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 219, in main
+    print(f'    \u2713 解压成功：{docs if docs else files}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2713' in position 4: 
+illegal multibyte sequence
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 227, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 221, in main
+    print(f'    \u2717 {type(e).__name__}: {str(e)[:100]}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2717' in position 4: 
+illegal multibyte sequence
+== 栏目 物理全部 年份过滤 [2020, 2021, 2022, 2023, 2024, 2025, 2026]，最多 不限 份 ==
+  列表共 54 篇
+  [2023] 2023年全国甲卷物理真题（解析版
+python : Traceback (most recent call last):
+所在位置 行:1 字符: 150
++ ... ation $app; python scripts\crawl_shijuan.py --subject $s 2>&1 | Out-F ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 219, in main
+    print(f'    \u2713 解压成功：{docs if docs else files}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2713' in position 4: 
+illegal multibyte sequence
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 227, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 221, in main
+    print(f'    \u2717 {type(e).__name__}: {str(e)[:100]}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2717' in position 4: 
+illegal multibyte sequence
+== 栏目 化学全部 年份过滤 [2020, 2021, 2022, 2023, 2024, 2025, 2026]，最多 不限 份 ==
+  列表共 46 篇
+  [2023] 2023年高考全国乙卷化学真题（解
+python : Traceback (most recent call last):
+所在位置 行:1 字符: 150
++ ... ation $app; python scripts\crawl_shijuan.py --subject $s 2>&1 | Out-F ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 219, in main
+    print(f'    \u2713 解压成功：{docs if docs else files}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2713' in position 4: 
+illegal multibyte sequence
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 227, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 221, in main
+    print(f'    \u2717 {type(e).__name__}: {str(e)[:100]}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2717' in position 4: 
+illegal multibyte sequence
+== 栏目 英语全部 年份过滤 [2020, 2021, 2022, 2023, 2024, 2025, 2026]，最多 不限 份 ==
+  列表共 98 篇
+  [2023] 2023年新课标全国Ⅱ卷英语真题（
+python : Traceback (most recent call last):
+所在位置 行:1 字符: 150
++ ... ation $app; python scripts\crawl_shijuan.py --subject $s 2>&1 | Out-F ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 219, in main
+    print(f'    \u2713 解压成功：{docs if docs else files}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2713' in position 4: 
+illegal multibyte sequence
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 227, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 221, in main
+    print(f'    \u2717 {type(e).__name__}: {str(e)[:100]}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2717' in position 4: 
+illegal multibyte sequence
+== 栏目 语文全部 年份过滤 [2020, 2021, 2022, 2023, 2024, 2025, 2026]，最多 不限 份 ==
+  列表共 99 篇
+  [2023] <font color='#330099'>2023年新高考全国乙卷语文真题（</font>
+python : Traceback (most recent call last):
+所在位置 行:1 字符: 150
++ ... ation $app; python scripts\crawl_shijuan.py --subject $s 2>&1 | Out-F ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 219, in main
+    print(f'    \u2713 解压成功：{docs if docs else files}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2713' in position 4: 
+illegal multibyte sequence
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 227, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 221, in main
+    print(f'    \u2717 {type(e).__name__}: {str(e)[:100]}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2717' in position 4: 
+illegal multibyte sequence
+== 栏目 生物全部 年份过滤 [2020, 2021, 2022, 2023, 2024, 2025, 2026]，最多 不限 份 ==
+  列表共 54 篇
+  [2023] 2023年新教材高考湖南卷生物（解
+python : Traceback (most recent call last):
+所在位置 行:1 字符: 150
++ ... ation $app; python scripts\crawl_shijuan.py --subject $s 2>&1 | Out-F ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 219, in main
+    print(f'    \u2713 解压成功：{docs if docs else files}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2713' in position 4: 
+illegal multibyte sequence
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 227, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 221, in main
+    print(f'    \u2717 {type(e).__name__}: {str(e)[:100]}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2717' in position 4: 
+illegal multibyte sequence
+== 栏目 历史全部 年份过滤 [2020, 2021, 2022, 2023, 2024, 2025, 2026]，最多 不限 份 ==
+  列表共 58 篇
+  [2023] 2023年高考新课标卷（五省）历史
+python : Traceback (most recent call last):
+所在位置 行:1 字符: 150
++ ... ation $app; python scripts\crawl_shijuan.py --subject $s 2>&1 | Out-F ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 219, in main
+    print(f'    \u2713 解压成功：{docs if docs else files}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2713' in position 4: 
+illegal multibyte sequence
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 227, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 221, in main
+    print(f'    \u2717 {type(e).__name__}: {str(e)[:100]}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2717' in position 4: 
+illegal multibyte sequence
+== 栏目 地理全部 年份过滤 [2020, 2021, 2022, 2023, 2024, 2025, 2026]，最多 不限 份 ==
+  列表共 54 篇
+  [2023] 2023年浙江高考地理真题（解析版
+python : Traceback (most recent call last):
+所在位置 行:1 字符: 150
++ ... ation $app; python scripts\crawl_shijuan.py --subject $s 2>&1 | Out-F ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 219, in main
+    print(f'    \u2713 解压成功：{docs if docs else files}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2713' in position 4: 
+illegal multibyte sequence
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 227, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 221, in main
+    print(f'    \u2717 {type(e).__name__}: {str(e)[:100]}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2717' in position 4: 
+illegal multibyte sequence
+== 栏目 道法全部 年份过滤 [2020, 2021, 2022, 2023, 2024, 2025, 2026]，最多 不限 份 ==
+  列表共 59 篇
+  [2023] 2023年高考新课标卷（五省）政治
+python : Traceback (most recent call last):
+所在位置 行:1 字符: 150
++ ... ation $app; python scripts\crawl_shijuan.py --subject $s 2>&1 | Out-F ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last) 
+   ::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 219, in main
+    print(f'    \u2713 解压成功：{docs if docs else files}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2713' in position 4: 
+illegal multibyte sequence
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 227, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "C:\Users\31878\Documents\K12-AI-Tutor\app\scripts\crawl_shijuan.py", li
+ne 221, in main
+    print(f'    \u2717 {type(e).__name__}: {str(e)[:100]}')
+    ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+UnicodeEncodeError: 'gbk' codec can't encode character '\u2717' in position 4: 
+illegal multibyte sequence
