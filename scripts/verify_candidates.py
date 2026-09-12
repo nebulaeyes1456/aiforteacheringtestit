@@ -116,6 +116,11 @@ def main():
             continue
         kind = c.get("kind", "choice")
         print(f"[验证中] {qid}({kind}): {c['question'][:40]}…")
+        # 空选项/选项相邻的残缺口：无需调用 AI，直接拒绝（省成本）
+        if kind == "choice" and re.search(r'[A-D]\s*[.．、]\s*[A-D]\s*[.．、]', c['question']):
+            print("    [REJECT] 选项残缺（公式图片化），拒绝入库")
+            log["rejected"].append({"id": qid, "raw": [], "official": ""})
+            continue
         try:
             raw, err_msgs = solve_many(c["question"], kind, c.get("subject", "数学"))
         except client.NoApiKeyError as e:

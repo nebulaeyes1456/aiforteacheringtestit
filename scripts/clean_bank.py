@@ -18,11 +18,28 @@ BAD_PATTERNS = [
     r'^第[一二三四五六七八九十\d]+部分',
 ]
 
+OPTION_MARK = re.compile(r'[A-D]\s*[.．、]')
+EMPTY_OPTIONS_RE = re.compile(r'[A-D]\s*[.．、]\s*[A-D]\s*[.．、]')
+FIG_RE = re.compile(r'如图|图所示|图中|下图|如图所示|下列图|图象所示|图像所示')
+
 RE = re.compile('|'.join(BAD_PATTERNS))
 
 
 def is_bad(qtext):
-    return bool(RE.search(qtext or ''))
+    text = qtext or ''
+    if RE.search(text):
+        return True
+    # 选项相邻（中间无内容）→ 公式图片化导致的空选项
+    if EMPTY_OPTIONS_RE.search(text):
+        return True
+    # 选择题但题干正文过短（题目本体是图片）
+    m = OPTION_MARK.search(text)
+    if m and len(text[:m.start()].strip()) < 6:
+        return True
+    # 图示题：前端尚不支持显示图，暂移入 OCR 队列
+    if FIG_RE.search(text):
+        return True
+    return False
 
 
 def main():
