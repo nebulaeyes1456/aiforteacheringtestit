@@ -47,6 +47,7 @@
   .error { background:#fdecec; color:#b3261e; }
   .sys { color:#888; font-size:12px; text-align:center; margin:6px 0; }
   textarea { width:100%; box-sizing:border-box; border:1px solid #ccc; border-radius:8px; padding:10px; font-size:14px; resize:vertical; }
+  .katex-error { color: inherit !important; }
   .row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
   button { border:none; border-radius:8px; padding:9px 14px; font-size:14px; cursor:pointer; background:#2f6fed; color:#fff; }
   button:disabled { background:#b9c6e2; cursor:not-allowed; }
@@ -115,6 +116,7 @@
       </div>
       <div class="small">提示：若点了没反应，说明浏览器语音服务在国内不可用，请改用系统语音输入（Win11 按 Win+H，或搜狗/讯飞输入法的麦克风）直接对着输入框说话。</div>
       <div class="symrow" id="symQ"></div>
+      <div class="symrow" id="symQ2" style="margin-top:2px"></div>
       <div class="row">
         <button id="btnNotebook" class="sec" style="flex:1">📕 错题本（永久保存，查看不耗时）</button>
       </div>
@@ -127,8 +129,9 @@
     <div class="right">
       <h2>💬 做题窗口</h2>
       <div id="answerArea" style="display:none">
-        <textarea id="answer" rows="2" placeholder="在这里写你的回答或疑问，也可点 🎤 语音输入（x^2、根号2 等普通写法即可）…"></textarea>
+        <textarea id="answer" rows="2" placeholder="在这里写你的回答或疑问，也可点 🎤 语音输入（x_2、x^2、alpha 等普通写法会自动转成易读符号）…"></textarea>
         <div class="symrow" id="symA"></div>
+        <div class="symrow" id="symA2" style="margin-top:2px"></div>
         <div class="row">
           <button class="sec" onclick="voiceInput('answer')">🎤</button>
           <button id="btnReply">发送回答</button>
@@ -169,12 +172,9 @@ function getUid() {
 }
 
 // 归一化 AI 偶尔输出的双反斜杠 LaTeX（\\(...\\)、\\[...\\]），避免渲染失败
+// 归一化 AI 输出：把多个连续反斜杠折叠成一个（\\( → \(，\\quad → \quad），避免 KaTeX 报错
 function normLatex(s) {
-  return (s || '')
-    .replace(/\\\\\[/g, '\\[')
-    .replace(/\\\\\]/g, '\\]')
-    .replace(/\\\\\(/g, '\\(')
-    .replace(/\\\\\)/g, '\\)');
+  return (s || '').replace(/\\{2,}/g, '\\');
 }
 
 // 清理 AI 输出中常见的 Markdown 标记（#、**、---、`、>），避免裸文本显示
@@ -190,24 +190,92 @@ function stripMd(s) {
     .replace(/\n{3,}/g, '\n\n');
 }
 
-// 理科科目：AI 偶尔把公式写成普通文本（x^2、x2、1/2、\_），自动包成 $...$ 再渲染
+// 理科科目：AI 偶尔把公式写成普通文本（x^2、x2、1/2、\_、\quad），自动修正后再渲染
 const MATHY_SUBJECTS = ['数学', '物理', '化学', '生物', '地理'];
+
+// 裸 LaTeX 命令 → 文本符号（公式段之外的兕底）
+const BARE_CMD_MAP = {
+  '\\times': '×', '\\div': '÷', '\\neq': '≠', '\\ne': '≠', '\\leq': '≤', '\\le': '≤',
+  '\\geq': '≥', '\\ge': '≥', '\\pm': '±', '\\mp': '∓', '\\cdot': '·', '\\infty': '∞',
+  '\\pi': 'π', '\\theta': 'θ', '\\Delta': 'Δ', '\\lambda': 'λ', '\\mu': 'μ',
+  '\\rho': 'ρ', '\\sigma': 'σ', '\\omega': 'ω', '\\Omega': 'Ω', '\\alpha': 'α',
+  '\\beta': 'β', '\\gamma': 'γ', '\\approx': '≈', '\\degree': '°'
+};
+
+function mathSegFix(seg) {
+  // 只处理非公式段，逐行进行
+  return seg.split('\n').map(function (line) {
+    const m = line.match(/^\s*(.*?)\s*$/);
+    const coreRaw = m ? m[1] : '';
+    // 整行是纯公式（含 LaTeX 命令且无中文）→ 去掉残留 $ 后整行包成 $...$，不再做令牌级处理
+    if (coreRaw && /\\[A-Za-z]+/.test(coreRaw) && !/[\u4e00-\u9fff]/.test(coreRaw)) {
+      const core = coreRaw.replace(/\$/g, '');
+      if (!core) return line;
+      return line.replace(coreRaw, '$' + core + '$');
+    }
+    let l = line;
+    l = l.replace(/\\_/g, '_');
+    l = l.replace(/\\quad|\\qquad/g, ' ');
+    for (const k in BARE_CMD_MAP) {
+      l = l.split(k).join(BARE_CMD_MAP[k]);
+    }
+    // 带花括号的 LaTeX 命令 → 包成公式：\frac{1}{2}、\sqrt{4}、\text{或} 等
+    l = l.replace(/(\\[A-Za-z]+(?:\{[^{}]*\}){1,2})/g, '$$$1$$');
+    // 字母+一位数字 → 上标（x2 → x^2）；用前缀捕获代替后行断言，兼容旧浏览器
+    l = l.replace(/(^|[^A-Za-z0-9$\\])([A-Za-z])(\d)(?![A-Za-z0-9])/g, function (mm, pre, a, b) {
+      return pre + '$' + a + '^' + b + '$';
+    });
+    // 变量幂次/下标：x^2、v_0、a^{n}
+    l = l.replace(/(^|[^A-Za-z0-9$\\])([A-Za-z])(\^\{?[0-9A-Za-z+\-.]+}?|_\{?[0-9A-Za-z+\-]+\}?)/g, function (mm, pre, a, b) {
+      return pre + '$' + a + b + '$';
+    });
+    // 简单分数：1/2 → \frac{1}{2}
+    l = l.replace(/(^|[^A-Za-z0-9$])(\d+)\/(\d+)(?![A-Za-z0-9])/g, function (mm, pre, a, b) {
+      return pre + '$\\frac{' + a + '}{' + b + '}$';
+    });
+    return l;
+  }).join('\n');
+}
+
 function beautifyMath(text) {
-  let t = String(text || '');
-  t = t.replace(/\\_/g, '_');
-  // 字母+一位数字 → 上标（x2 → x^2）；用前缀捕获代替后行断言，兼容旧浏览器
-  t = t.replace(/(^|[^A-Za-z0-9$\\])([A-Za-z])(\d)(?![A-Za-z0-9])/g, function (m, pre, a, b) {
-    return pre + '$' + a + '^' + b + '$';
+  // 按已有公式定界符切段：公式段原样保留，其余段美化，避免破坏已有 $...$ 嵌套
+  // 行内 $ 要求非空内容，防止把 $$ 误切成空公式
+  const parts = String(text || '').split(/(\$\$[^$]*\$\$|\$[^$\n]+\$|\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\])/g);
+  return parts.map(function (seg) {
+    if (seg && /^(\$\$|\$|\\\(|\\\[)/.test(seg)) return seg;
+    return mathSegFix(seg);
+  }).join('');
+}
+
+// ---------- 智能输入转换（提交时把普通写法转成易读符号） ----------
+const SUB_DIGITS = '₀₁₂₃₄₅₆₇₈₉';
+const SUP_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+const GREEK_WORDS = ['alpha', 'beta', 'gamma', 'delta', 'theta', 'lambda', 'mu', 'pi', 'rho', 'sigma', 'phi', 'psi', 'omega', 'Delta', 'Omega', 'Sigma', 'Phi'];
+const GREEK_SYMBOLS = ['α', 'β', 'γ', 'δ', 'θ', 'λ', 'μ', 'π', 'ρ', 'σ', 'φ', 'ψ', 'ω', 'Δ', 'Ω', 'Σ', 'Φ'];
+
+function smartFormat(s) {
+  let t = String(s || '');
+  // 下标：x_2 → x₂，x_{12} → x₁₂
+  t = t.replace(/([A-Za-z])_\{?(\d+)\}?/g, function (m, a, b) {
+    return a + b.split('').map(d => SUB_DIGITS[+d] || d).join('');
   });
-  // 变量幂次/下标：x^2、v_0、a^{n}
-  t = t.replace(/(^|[^A-Za-z0-9$\\])([A-Za-z])(\^\{?[0-9A-Za-z+\-.]+}?|_\{?[0-9A-Za-z+\-]+\}?)/g, function (m, pre, a, b) {
-    return pre + '$' + a + b + '$';
+  // 上标：x^2 → x²，x^{12} → x¹²
+  t = t.replace(/([A-Za-z0-9])\^\{?(\d+)\}?/g, function (m, a, b) {
+    return a + b.split('').map(d => SUP_DIGITS[+d] || d).join('');
   });
-  // 简单分数：1/2 → \frac{1}{2}
-  t = t.replace(/(^|[^A-Za-z0-9$])(\d+)\/(\d+)(?![A-Za-z0-9])/g, function (m, pre, a, b) {
-    return pre + '$\\frac{' + a + '}{' + b + '}$';
+  // 比较符
+  t = t.split('>=').join('≥').split('<=').join('≤').split('!=').join('≠').split('*').join('×');
+  // 根号
+  t = t.replace(/sqrt\(/g, '√(').replace(/sqrt(\d)/g, '√$1').replace(/\bsqrt\b/g, '√');
+  // 希腊字母单词（整词边界）
+  GREEK_WORDS.forEach(function (w, i) {
+    t = t.replace(new RegExp('\\b' + w + '\\b', 'g'), GREEK_SYMBOLS[i]);
   });
   return t;
+}
+
+function formatInput(s) {
+  return MATHY_SUBJECTS.indexOf(currentSubject()) >= 0 ? smartFormat(s) : String(s || '');
 }
 
 function currentSubject() {
@@ -326,9 +394,10 @@ document.getElementById('btnStart').onclick = async () => {
   const q = document.getElementById('question').value.trim();
   if (!q) return addMsg('请先输入题目。', 'error');
   resetForNewQuestion();
-  addMsg(q, 'student');
+  const qf = formatInput(q);
+  addMsg(qf, 'student');
   try {
-    const r = await api('/api/start', { question: q, province: document.getElementById('province').value, grade: document.getElementById('grade').value, subject: document.getElementById('subject').value });
+    const r = await api('/api/start', { question: qf, province: document.getElementById('province').value, grade: document.getElementById('grade').value, subject: document.getElementById('subject').value });
     sessionId = r.session_id;
     addMsg(r.reply, 'coach');
     document.getElementById('answerArea').style.display = 'block';
@@ -346,10 +415,11 @@ document.getElementById('btnStart').onclick = async () => {
 document.getElementById('btnReply').onclick = async () => {
   const t = document.getElementById('answer').value.trim();
   if (!t) return;
-  addMsg(t, 'student');
+  const tf = formatInput(t);
+  addMsg(tf, 'student');
   document.getElementById('answer').value = '';
   try {
-    const r = await api('/api/reply', { session_id: sessionId, text: t });
+    const r = await api('/api/reply', { session_id: sessionId, text: tf });
     addMsg(r.reply, 'coach');
     setRound(r);
     refreshBudget();
@@ -435,6 +505,19 @@ const SUBJECT_SYMBOLS = {
   '道法': ['“”', '《》', '①', '②', '③']
 };
 
+// 第二行：下标/上标/希腊字母（智能输入栏）
+const SUBJECT_SYM2 = {
+  '数学': ['x²', 'x³', 'x₀', 'x₁', 'x₂', 'xₙ', 'α', 'β', 'γ', 'θ', 'λ', 'μ', 'π', 'σ', 'φ', 'ω', 'Δ', 'Σ', 'Ω', '∫', '∑'],
+  '物理': ['x²', 'x³', 'x₀', 'x₁', 'x₂', 'v₁', 'v₂', 'α', 'β', 'θ', 'λ', 'μ', 'π', 'ρ', 'σ', 'ω', 'Δ', 'Ω', '°', '℃'],
+  '化学': ['H₂O', 'CO₂', 'O₂', '₂', '₃', 'x₁', 'x₂', 'α', 'β', 'γ', 'Δ', '→', '⇌', '↑', '↓'],
+  '生物': ['x₁', 'x₂', 'x₀', 'A₁', 'A₂', 'α', 'β', 'γ', '°', '℃', '→'],
+  '地理': ['x₁', 'x₂', 'x₀', 'α', 'β', '°', '℃', '→', 'Δ'],
+  '英语': [],
+  '语文': [],
+  '历史': [],
+  '道法': []
+};
+
 const SUBJECT_TAG_HINTS = {
   '数学': '如：判别式、二次函数',
   '物理': '如：浮力、欧姆定律',
@@ -462,16 +545,20 @@ const SUBJECT_Q_HINTS = {
 function rebuildSymBars() {
   const s = document.getElementById('subject').value || '数学';
   const syms = SUBJECT_SYMBOLS[s] || [];
-  ['symQ', 'symA'].forEach(id => {
-    const bar = document.getElementById(id);
-    bar.innerHTML = '';
-    syms.forEach(sym => {
-      const b = document.createElement('button');
-      b.type = 'button';
-      b.className = 'sym';
-      b.textContent = sym;
-      b.onclick = () => insertSymbol(id === 'symQ' ? 'question' : 'answer', sym);
-      bar.appendChild(b);
+  const syms2 = SUBJECT_SYM2[s] || [];
+  [['symQ', 'symA'], ['symQ2', 'symA2']].forEach(function (pair, idx) {
+    const list = idx === 0 ? syms : syms2;
+    pair.forEach(function (id) {
+      const bar = document.getElementById(id);
+      bar.innerHTML = '';
+      list.forEach(function (sym) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'sym';
+        b.textContent = sym;
+        b.onclick = () => insertSymbol(id.indexOf('Q') >= 0 ? 'question' : 'answer', sym);
+        bar.appendChild(b);
+      });
     });
   });
 }
