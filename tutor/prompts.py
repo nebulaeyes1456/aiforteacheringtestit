@@ -4,20 +4,35 @@
 """
 from . import config
 
-def system(province: str = "通用", grade: str = "通用") -> str:
-    """按省份与年级生成系统提示词；「通用」表示不限。"""
-    scope = f"{province}中考数学" if province and province != "通用" else "中考数学"
+SUBJECT_HINTS = {
+    "数学": "数学式与公式一律用 LaTeX（行内 $...$）。",
+    "物理": "物理公式用 LaTeX（行内 $...$）；讲解时先引导学生找出已知量和所求量。",
+    "化学": "化学式与方程式用规范写法（下标用 LaTeX，如 $CO_2$）；配平思路分步引导。",
+    "英语": "以英语讲解为主、中文辅助；单词和语法点讲清用法。",
+    "语文": "结合原文与题干信息，引导答题思路与表述要点。",
+    "生物": "概念讲准确；图表类题目用文字描述清楚。",
+    "历史": "先点出史实依据，再引导归纳结论，注意时间线索。",
+    "地理": "概念与空间关系讲清楚；地图类题目用文字描述。",
+    "道法": "先讲知识点依据，再引导结合材料作答。",
+}
+
+
+def system(province: str = "通用", grade: str = "通用", subject: str = "数学") -> str:
+    """按省份、年级、学科生成系统提示词；「通用」表示不限。"""
+    scope = f"{province}中考" if province and province != "通用" else "中考"
     if grade and grade != "通用":
         grade_hint = f"学生所在年级：{grade}，讲解深度与语言表达要适配该年级。"
     else:
         grade_hint = "学生年级未指定，使用初中生可理解的语言。"
-    return f"""你是「追问式讲题教练」，面向初、高中学生，专注{scope}函数/代数类压轴题前两问与中档易错题。{grade_hint}
+    subject_hint = SUBJECT_HINTS.get(subject, "")
+    return f"""你是「追问式讲题教练」，面向初、高中学生，专注{scope}{subject}题目的讲解。{grade_hint}
+{subject_hint}
 
 硬性规则：
 1. 永远不直接抛出完整答案。用「一步提示 + 一个追问」带学生思考，每轮最多给一步提示。
 2. 追问最多 {config.MAX_GUIDE_ROUNDS} 轮；学生主动要求完整讲解、或达到轮数上限后，才输出完整分步解答。
 3. 学生作答后：先明确判断对错，再给出错因标签（概念不清 / 计算失误 / 审题偏差 / 方法不当 / 格式不规范）。
-4. 全程中文；数学式用 LaTeX（行内 $...$，尽量简短）。
+4. 默认中文讲解（英语学科以英语为主）；公式与符号按学科规范书写。
 5. 没把握的题目：只做思路引导，并明确说明「本题仅供参考思路，建议核对标准答案」。
 6. 语气像耐心的老师：只针对做题过程，不评价学生本人，多肯定做对的部分。
 7. 题目表述不清或疑似超纲时，先向学生确认再继续。
@@ -33,10 +48,10 @@ def system(province: str = "通用", grade: str = "通用") -> str:
   - 学生被提醒走神后：先让他用一句话复述当前步骤，确认注意力回到题目再继续。"""
 
 
-def guide_first(question: str, province: str = "通用", grade: str = "通用"):
+def guide_first(question: str, province: str = "通用", grade: str = "通用", subject: str = "数学"):
     """首次引导：点明考点 + 第一步提示 + 一个追问。"""
     return [
-        {"role": "system", "content": system(province, grade)},
+        {"role": "system", "content": system(province, grade, subject)},
         {
             "role": "user",
             "content": (
@@ -51,11 +66,11 @@ def guide_first(question: str, province: str = "通用", grade: str = "通用"):
     ]
 
 
-def feedback(question: str, history, student_reply: str, province: str = "通用", grade: str = "通用"):
+def feedback(question: str, history, student_reply: str, province: str = "通用", grade: str = "通用", subject: str = "数学"):
     """后续引导：判对错 + 错因标签 + 下一步提示与追问。"""
     lines = "\n".join(history[-8:])
     return [
-        {"role": "system", "content": system(province, grade)},
+        {"role": "system", "content": system(province, grade, subject)},
         {
             "role": "user",
             "content": (
@@ -77,11 +92,11 @@ def feedback(question: str, history, student_reply: str, province: str = "通用
     ]
 
 
-def full_solution(question: str, history, province: str = "通用", grade: str = "通用"):
+def full_solution(question: str, history, province: str = "通用", grade: str = "通用", subject: str = "数学"):
     """完整讲解（3 轮后或学生主动要求时）。"""
     lines = "\n".join(history[-8:])
     return [
-        {"role": "system", "content": system(province, grade)},
+        {"role": "system", "content": system(province, grade, subject)},
         {
             "role": "user",
             "content": (
@@ -98,11 +113,11 @@ def full_solution(question: str, history, province: str = "通用", grade: str =
     ]
 
 
-def similar_question(question: str, history, province: str = "通用", grade: str = "通用"):
+def similar_question(question: str, history, province: str = "通用", grade: str = "通用", subject: str = "数学"):
     """举一反三：同考点、同难度变式题。"""
     lines = "\n".join(history[-8:])
     return [
-        {"role": "system", "content": system(province, grade)},
+        {"role": "system", "content": system(province, grade, subject)},
         {
             "role": "user",
             "content": (
@@ -119,11 +134,11 @@ def similar_question(question: str, history, province: str = "通用", grade: st
     ]
 
 
-def summarize(question: str, history, province: str = "通用", grade: str = "通用"):
+def summarize(question: str, history, province: str = "通用", grade: str = "通用", subject: str = "数学"):
     """学习报告：掌握度小结 + 错因标签 + 薄弱知识点 + 知识点思维导图 + 下一步建议。"""
     lines = "\n".join(history[-10:])
     return [
-        {"role": "system", "content": system(province, grade)},
+        {"role": "system", "content": system(province, grade, subject)},
         {
             "role": "user",
             "content": (
@@ -144,10 +159,10 @@ def summarize(question: str, history, province: str = "通用", grade: str = "�
     ]
 
 
-def knowledge_summary(topic: str, province: str = "通用", grade: str = "通用"):
+def knowledge_summary(topic: str, province: str = "通用", grade: str = "通用", subject: str = "数学"):
     """知识点要点总结（独立调用，无题目）。"""
     return [
-        {"role": "system", "content": system(province, grade)},
+        {"role": "system", "content": system(province, grade, subject)},
         {
             "role": "user",
             "content": (

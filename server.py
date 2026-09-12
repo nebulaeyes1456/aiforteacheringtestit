@@ -275,11 +275,17 @@ def grades():
     return jsonify({"default": config.GRADE, "list": config.GRADES})
 
 
+@app.get("/api/subjects")
+def subjects():
+    return jsonify({"default": config.SUBJECT, "list": config.SUBJECTS})
+
+
 @app.get("/api/practice")
 def practice():
     """随机练一题：从题库抽 status=ready 的题，可按省份与知识点关键词筛选；skip=1 时仅记录跳题埋点。"""
     province = (request.args.get("province") or "").strip()
     tag = (request.args.get("tag") or "").strip()
+    subject = (request.args.get("subject") or "").strip()
     if request.args.get("skip") == "1":
         _stat("skip_question")
     if not config.QUESTION_BANK.exists():
@@ -293,6 +299,8 @@ def practice():
         pool = [q for q in pool if q.get("province") == province]
     if tag:
         pool = [q for q in pool if any(tag in (t or "") for t in (q.get("tags") or []))]
+    if subject:
+        pool = [q for q in pool if q.get("subject", "数学") == subject]
     if not pool:
         return jsonify(
             {"error": f"题库中暂无可练的题（省份：{province or '不限'}，知识点：{tag or '不限'}）。"}
@@ -335,6 +343,7 @@ def summary_kp():
     topic = (body.get("topic") or "").strip()
     province = (body.get("province") or "").strip() or config.PROVINCE
     grade = (body.get("grade") or "").strip() or config.GRADE
+    subject = (body.get("subject") or "").strip() or config.SUBJECT
     if not topic:
         return jsonify({"error": "请先输入知识点关键词。"}), 400
 
@@ -347,7 +356,7 @@ def summary_kp():
                 raise ValueError("本服务仅限已购用户使用，请先输入兑换码。")
             _ensure_user(_uid())
         t0 = time.time()
-        text = client.chat(prompts.knowledge_summary(topic, province, grade))
+        text = client.chat(prompts.knowledge_summary(topic, province, grade, subject))
         elapsed = time.time() - t0
         if v:
             data = _load_vouchers()
@@ -371,6 +380,7 @@ def start():
     question = body.get("question", "")
     province = (body.get("province") or "").strip() or config.PROVINCE
     grade = (body.get("grade") or "").strip() or config.GRADE
+    subject = (body.get("subject") or "").strip() or config.SUBJECT
 
     def run():
         sid = uuid.uuid4().hex[:12]
@@ -381,7 +391,7 @@ def start():
             if config.ACCESS_MODE == "private":
                 raise ValueError("本服务仅限已购用户使用，请先输入兑换码。")
             _ensure_user(_uid())
-        s = engine.Session(province, grade)
+        s = engine.Session(province, grade, subject)
         result = s.start(question)
         if v:
             SESSION_META[sid] = {"key": _key(), "last": time.time()}

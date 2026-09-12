@@ -74,6 +74,10 @@
         <label style="align-self:center;font-size:14px">年级</label>
         <select id="grade" style="padding:8px 10px;border-radius:8px;border:1px solid #ccc;font-size:14px"></select>
       </div>
+      <div class="row" style="margin-top:8px">
+        <label style="align-self:center;font-size:14px">学科</label>
+        <select id="subject" style="padding:8px 10px;border-radius:8px;border:1px solid #ccc;font-size:14px"></select>
+      </div>
       <div class="tagbox">
         <div class="tagtitle">🔍 按知识点找题（可不填）</div>
         <div class="row" style="margin-top:6px">
@@ -229,7 +233,7 @@ document.getElementById('btnStart').onclick = async () => {
   if (!q) return addMsg('请先输入题目。', 'error');
   addMsg(q, 'student');
   try {
-    const r = await api('/api/start', { question: q, province: document.getElementById('province').value, grade: document.getElementById('grade').value });
+    const r = await api('/api/start', { question: q, province: document.getElementById('province').value, grade: document.getElementById('grade').value, subject: document.getElementById('subject').value });
     sessionId = r.session_id;
     addMsg(r.reply, 'coach');
     document.getElementById('answerArea').style.display = 'block';
@@ -362,6 +366,18 @@ function voiceInput(targetId) {
   try { rec.start(); } catch (err) { addMsg('⚠️ 语音识别启动失败：' + err.message, 'error'); }
 }
 
+function loadSubjects() {
+  fetch('/api/subjects').then(r => r.json()).then(j => {
+    const sel = document.getElementById('subject');
+    (j.list || ['数学']).forEach(s => {
+      const o = document.createElement('option');
+      o.value = s; o.textContent = s;
+      if (s === (j.default || '数学')) o.selected = true;
+      sel.appendChild(o);
+    });
+  }).catch(() => {});
+}
+
 function loadTags() {
   fetch('/api/tags').then(r => r.json()).then(j => {
     const dl = document.getElementById('tagList');
@@ -384,7 +400,8 @@ function loadTags() {
 function drawQuestion(skip) {
   const p = document.getElementById('province').value;
   const tag = document.getElementById('tagInput').value.trim();
-  return fetch('/api/practice?province=' + encodeURIComponent(p) + '&tag=' + encodeURIComponent(tag) + (skip ? '&skip=1' : ''))
+  const s = document.getElementById('subject').value;
+  return fetch('/api/practice?province=' + encodeURIComponent(p) + '&tag=' + encodeURIComponent(tag) + '&subject=' + encodeURIComponent(s) + (skip ? '&skip=1' : ''))
     .then(async r => {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
@@ -422,7 +439,8 @@ document.getElementById('btnSummaryKp').onclick = async () => {
     const r = await api('/api/summary_kp', {
       topic: topic,
       province: document.getElementById('province').value,
-      grade: document.getElementById('grade').value
+      grade: document.getElementById('grade').value,
+      subject: document.getElementById('subject').value
     });
     addMsg(r.reply, 'coach');
     refreshBudget();
@@ -436,6 +454,7 @@ loadTags();
 
 loadProvinces();
 loadGrades();
+loadSubjects();
 buildSymBars();
 
 document.getElementById('btnUnlock').onclick = () => simpleAct('/api/unlock');

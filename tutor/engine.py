@@ -8,9 +8,10 @@ from . import client, config, prompts
 
 
 class Session:
-    def __init__(self, province: str = "通用", grade: str = "通用"):
+    def __init__(self, province: str = "通用", grade: str = "通用", subject: str = "数学"):
         self.province = province
         self.grade = grade
+        self.subject = subject
         self.question = None
         self.round = 0
         self.history = []  # ["教练：...", "学生：..."]
@@ -27,7 +28,7 @@ class Session:
         self.round = 0
         self.history = []
         self.state = "guiding"
-        reply = client.chat(prompts.guide_first(question, self.province, self.grade))
+        reply = client.chat(prompts.guide_first(question, self.province, self.grade, self.subject))
         self.history.append("教练：" + reply)
         return {"reply": reply, "round": 0, "can_unlock": False}
 
@@ -39,7 +40,7 @@ class Session:
             raise ValueError("回答不能为空")
         self.round += 1
         self.history.append("学生：" + text)
-        reply = client.chat(prompts.feedback(self.question, self.history, text, self.province, self.grade))
+        reply = client.chat(prompts.feedback(self.question, self.history, text, self.province, self.grade, self.subject))
         self.history.append("教练：" + reply)
         return {
             "reply": reply,
@@ -50,7 +51,7 @@ class Session:
     def unlock(self) -> str:
         if not self.question:
             raise ValueError("会话未开始")
-        reply = client.chat(prompts.full_solution(self.question, self.history, self.province, self.grade))
+        reply = client.chat(prompts.full_solution(self.question, self.history, self.province, self.grade, self.subject))
         self.state = "solved"
         self.history.append("教练：" + reply)
         return reply
@@ -58,11 +59,11 @@ class Session:
     def similar(self) -> str:
         if not self.question:
             raise ValueError("会话未开始")
-        return client.chat(prompts.similar_question(self.question, self.history, self.province, self.grade))
+        return client.chat(prompts.similar_question(self.question, self.history, self.province, self.grade, self.subject))
 
     def summarize(self) -> str:
         if not self.question:
             raise ValueError("会话未开始")
-        reply = client.chat(prompts.summarize(self.question, self.history, self.province, self.grade))
+        reply = client.chat(prompts.summarize(self.question, self.history, self.province, self.grade, self.subject))
         self.summary = reply
         return reply

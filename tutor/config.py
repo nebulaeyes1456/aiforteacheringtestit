@@ -54,6 +54,8 @@ PROVINCES = [
 ]
 GRADE = os.environ.get("TUTOR_GRADE", "通用")  # 默认年级，软件内可切换
 GRADES = ["通用", "初一", "初二", "初三", "高一", "高二", "高三"]
+SUBJECT = os.environ.get("TUTOR_SUBJECT", "数学")  # 默认学科，软件内可切换
+SUBJECTS = ["数学", "物理", "化学", "英语", "语文", "生物", "历史", "地理", "道法"]
 MAX_GUIDE_ROUNDS = 3                                  # 追问轮数上限（项目书 §4 兜底设计）
 
 # ---------- 模型参数 ----------

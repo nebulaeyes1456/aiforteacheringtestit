@@ -65,7 +65,19 @@ def main():
                 break
         letters = [a[0] for a in answers if a and a[0] in "ABCD"]
         unanimous = len(letters) == n_solves and len(set(letters)) == 1
+        official = (c.get("official_answer") or "").strip().upper()
+        status = "通过"
+        note = "AI 独立解答 5 次一致；官方答案待人工核对"
+        if unanimous and official:
+            if letters[0] == official:
+                note = "AI 独立解答 5 次一致，且与官方答案一致"
+            else:
+                status = f"❌ AI 共识 {letters[0]} 与官方答案 {official} 不符，拒绝入库"
+                unanimous = False
         print(f"    5 次答案：{answers} → {'✅ 一致通过' if unanimous else '❌ 不一致，拒绝入库'}")
+        if not unanimous:
+            log["rejected"].append({"id": qid, "raw": answers, "official": official})
+            continue
         if unanimous:
             bank["questions"].append(
                 {
@@ -78,14 +90,13 @@ def main():
                     "type": c["type"],
                     "difficulty": c["difficulty"],
                     "tags": c["tags"],
+                    "subject": c.get("subject", "数学"),
                     "question": c["question"],
-                    "official_answer": letters[0],
-                    "verify": "AI 独立解答 5 次结果一致；官方答案待人工核对",
+                    "official_answer": official or letters[0],
+                    "verify": note,
                 }
             )
-            log["verified"].append({"id": qid, "answer": letters[0], "raw": answers})
-        else:
-            log["rejected"].append({"id": qid, "raw": answers})
+            log["verified"].append({"id": qid, "answer": official or letters[0], "raw": answers})
 
     bank_path.write_text(json.dumps(bank, ensure_ascii=False, indent=2), encoding="utf-8")
     log["time"] = dt.datetime.now().isoformat(timespec="seconds")
