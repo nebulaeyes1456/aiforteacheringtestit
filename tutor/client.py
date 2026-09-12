@@ -7,6 +7,7 @@
 import datetime as dt
 import json
 import os
+import threading
 
 import requests
 
@@ -23,25 +24,46 @@ class BudgetExceededError(Exception):
 
 last_call_cost = 0.0  # 最近一次调用的实际成本（供上层按用户记账）
 
+_ledger_lock = threading.Lock()
+LEDGER_FILE = config.DATA_DIR / "usage_append.jsonl"  # 追加式流水账（权威）
+
 
 def _today() -> str:
     return dt.date.today().isoformat()
 
 
-def _load_usage():
+def _load_legacy():
+    """兼容旧版 usage.json。"""
     if config.USAGE_FILE.exists():
         try:
-            return json.loads(config.USAGE_FILE.read_text(encoding="utf-8"))
+            return json.loads(config.USAGE_FILE.read_text(encoding="utf-8")).get("records", [])
         except json.JSONDecodeError:
             pass
-    return {"records": []}
+    return []
+
+
+def _load_ledger():
+    records = _load_legacy()
+    if LEDGER_FILE.exists():
+        try:
+            for line in LEDGER_FILE.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if line:
+                    records.append(json.loads(line))
+        except json.JSONDecodeError:
+            pass
+    return records
 
 
 def _save_usage(data):
+    """追加最新一条记录到 jsonl（线程安全，避免并发写丢账）。"""
+    new_record = data["records"][-1] if data.get("records") else None
+    if not new_record:
+        return
     config.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    config.USAGE_FILE.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    with _ledger_lock:
+        with open(LEDGER_FILE, "a", encoding="utf-8") as f:
+            f.write(json.dumps(new_record, ensure_ascii=False) + "\n")
 
 
 def _cost(prompt_tokens: int, completion_tokens: int) -> float:
@@ -52,13 +74,13 @@ def _cost(prompt_tokens: int, completion_tokens: int) -> float:
 
 
 def total_spent() -> float:
-    return sum(r.get("cost", 0.0) for r in _load_usage()["records"])
+    return sum(r.get("cost", 0.0) for r in _load_ledger())
 
 
 def spent_today() -> float:
     return sum(
         r.get("cost", 0.0)
-        for r in _load_usage()["records"]
+        for r in _load_ledger()
         if r.get("date") == _today()
     )
 

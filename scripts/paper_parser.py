@@ -121,6 +121,8 @@ def build_question(stem_lines, meta, qid):
     if cut_idx is not None:
         stem_lines = stem_lines[:cut_idx]
     text = '\n'.join([l for l in stem_lines if l]).strip()
+    # 兜底：任意位置出现答案解析标记 → 截断（防同段落内联答案）
+    text = re.split(r'【?答[案】]|【?解[析】]|参考答案|答案详解', text)[0].strip()
     if not text or len(text) < 8:
         return None
     # 选项检测
