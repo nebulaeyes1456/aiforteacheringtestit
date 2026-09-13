@@ -16,13 +16,16 @@ BAD_PATTERNS = [
     r'句意[：:]', r'[（(]\d+分[）)]', r'评分标准', r'计分规则', r'得分情况', r'作答',
     r'^[一二三四五六七八九十]+、',
     r'^第[一二三四五六七八九十\d]+部分',
+    # 无编号小题拼接题：○/□填比较、一行多个算式
+    r'[○□▢]\s*里?填',
+    r'\d+\s*[×÷+\-]\s*\d+\s+\d+\s*[×÷+\-]\s*\d+',
 ]
 
 OPTION_MARK = re.compile(r'[A-D]\s*[.．、]')
 EMPTY_OPTIONS_RE = re.compile(r'[A-D]\s*[.．、]\s*[A-D]\s*[.．、]')
 FIG_RE = re.compile(r'如图|图所示|图中|下图|如图所示|下列图|图象所示|图像所示')
 
-RE = re.compile('|'.join(BAD_PATTERNS))
+RE = re.compile('|'.join(BAD_PATTERNS), re.MULTILINE)
 
 
 def is_bad(qtext):
