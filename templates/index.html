@@ -102,6 +102,7 @@
         <div class="row" style="margin-top:6px">
           <input id="tagInput" type="text" list="tagList" placeholder="输入知识点，如：判别式" style="flex:1;padding:9px 10px;border-radius:8px;border:1.5px solid #2f6fed;font-size:15px;background:#fff">
           <button id="btnSummaryKp" class="sec">📚 要点总结</button>
+          <button id="btnGenQ" class="sec">✨ 知识点出题</button>
         </div>
         <div class="small" style="margin-top:6px" id="tagChips"></div>
       </div>
@@ -699,6 +700,27 @@ document.getElementById('btnSummaryKp').onclick = async () => {
       subject: document.getElementById('subject').value
     });
     addMsg(r.reply, 'coach');
+    refreshBudget();
+  } catch (e) {
+    addMsg('⚠️ ' + e.message, 'error');
+    refreshBudget();
+  }
+};
+
+document.getElementById('btnGenQ').onclick = async () => {
+  const topic = document.getElementById('tagInput').value.trim();
+  if (!topic) return addMsg('⚠️ 请先在知识点输入框填写关键词（如：二次函数）。', 'error');
+  addMsg('✨ 请 AI 围绕「' + topic + '」出一题', 'student');
+  try {
+    const r = await api('/api/gen_question', {
+      topic: topic,
+      province: document.getElementById('province').value,
+      grade: document.getElementById('grade').value,
+      subject: document.getElementById('subject').value
+    });
+    resetForNewQuestion();
+    document.getElementById('question').value = r.question;
+    addMsg('🎯 已生成「' + topic + '」练习题，填入左侧题目框，点「开始讲题」开始挑战', 'sys');
     refreshBudget();
   } catch (e) {
     addMsg('⚠️ ' + e.message, 'error');

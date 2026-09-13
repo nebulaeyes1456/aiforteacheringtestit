@@ -224,7 +224,6 @@ def summarize(question: str, history, province: str = "通用", grade: str = "�
 
 
 def knowledge_summary(topic: str, province: str = "通用", grade: str = "通用", subject: str = "数学"):
-    """知识点要点总结（独立调用，无题目）。"""
     return [
         {"role": "system", "content": system(province, grade, subject)},
         {
@@ -236,6 +235,23 @@ def knowledge_summary(topic: str, province: str = "通用", grade: str = "通用
                 "③ 常见题型与考法：2~3 条；\n"
                 "④ 高频易错点：2~3 条，并各附一句避坑提醒；\n"
                 "⑤ 检验小练习：出 1 道同知识点的小题，只出题不给答案。"
+            ),
+        },
+    ]
+
+
+def gen_question(topic: str, province: str = "通用", grade: str = "通用", subject: str = "数学"):
+    """按知识点自动出题：只输出题目，不给答案（引导由讲题会话完成）。"""
+    return [
+        {"role": "system", "content": system(province, grade, subject)},
+        {
+            "role": "user",
+            "content": (
+                f"请围绕知识点「{topic}」出一道适合该学段学生的练习题：\n"
+                "要求：\n"
+                "1. 只输出题目本身（选择题要含 4 个选项），不输出答案、不输出解析；\n"
+                "2. 难度中等，贴近常见考法；所有公式用 $...$ 包裹；\n"
+                "3. 若是解答题，用（1）（2）给清晰小问编号。"
             ),
         },
     ]

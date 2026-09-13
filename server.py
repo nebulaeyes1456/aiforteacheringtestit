@@ -402,7 +402,6 @@ def tags():
 
 @app.post("/api/summary_kp")
 def summary_kp():
-    """知识点要点总结（独立调用）：同样经过内测额度 / 兑换码计费。"""
     body = request.get_json(silent=True) or {}
     topic = (body.get("topic") or "").strip()
     province = (body.get("province") or "").strip() or config.PROVINCE
@@ -434,6 +433,44 @@ def summary_kp():
             _charge_user(_uid(), client.last_call_cost)
         _stat("summary_kp")
         return jsonify({"reply": text})
+
+    return _guard(run)
+
+
+@app.post("/api/gen_question")
+def gen_question():
+    """按知识点自动出题：AI 生成一道练习题（只出题，不给答案）。计费同其他 AI 调用。"""
+    body = request.get_json(silent=True) or {}
+    topic = (body.get("topic") or "").strip()
+    province = (body.get("province") or "").strip() or config.PROVINCE
+    grade = (body.get("grade") or "").strip() or config.GRADE
+    subject = (body.get("subject") or "").strip() or config.SUBJECT
+    if not topic:
+        return jsonify({"error": "请先输入知识点关键词。"}), 400
+
+    def run():
+        v = _get_voucher(_key())
+        if v:
+            _check_voucher(v)
+        else:
+            if config.ACCESS_MODE == "private":
+                raise ValueError("本服务仅限已购用户使用，请先输入兑换码。")
+            _ensure_user(_uid())
+        t0 = time.time()
+        text = client.chat(prompts.gen_question(topic, province, grade, subject))
+        elapsed = time.time() - t0
+        if v:
+            data = _load_vouchers()
+            vv = data["vouchers"].get(_key())
+            if vv:
+                vv["seconds_used"] = round(
+                    vv.get("seconds_used", 0.0) + min(elapsed, config.VOUCHER_IDLE_CAP_SEC), 1
+                )
+                _save_vouchers(data)
+        else:
+            _charge_user(_uid(), client.last_call_cost)
+        _stat("gen_question")
+        return jsonify({"question": text})
 
     return _guard(run)
 

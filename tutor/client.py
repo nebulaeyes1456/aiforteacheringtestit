@@ -144,17 +144,14 @@ def chat(messages: list, max_tokens=None, temperature=None) -> str:
     global last_call_cost
     last_call_cost = round(cost, 6)
 
-    data = _load_usage()
-    data["records"].append(
-        {
-            "date": _today(),
-            "time": dt.datetime.now().isoformat(timespec="seconds"),
-            "model": config.MODEL,
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "cost": round(cost, 6),
-        }
-    )
-    _save_usage(data)
+    record = {
+        "date": _today(),
+        "time": dt.datetime.now().isoformat(timespec="seconds"),
+        "model": config.MODEL,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "cost": round(cost, 6),
+    }
+    _save_usage({"records": [record]})
 
     return body["choices"][0]["message"]["content"]
