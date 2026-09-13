@@ -46,6 +46,9 @@
   .student { background:#e8f7ee; margin-left:auto; text-align:left; }
   .error { background:#fdecec; color:#b3261e; }
   .sys { color:#888; font-size:12px; text-align:center; margin:6px 0; }
+  .qview { margin:8px 0; padding:10px 12px; background:#fff8e6; border:1px solid #f0d48a; border-radius:10px; font-size:14px; }
+  .qvhead { font-size:12px; color:#a06a00; margin-bottom:6px; font-weight:600; }
+  .qvbody { white-space:pre-wrap; word-break:break-word; }
   textarea { width:100%; box-sizing:border-box; border:1px solid #ccc; border-radius:8px; padding:10px; font-size:14px; resize:vertical; }
   .katex-error { color: inherit !important; }
   .row { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
@@ -176,6 +179,10 @@
         <div class="small" id="roundInfo"></div>
       </div>
       <div id="hint" class="sys">👈 先点「🎲 随机练一题」抽一道题（或把题目粘贴到左侧），再点「开始讲题」，AI 老师会在这里一步步引导你做题。</div>
+      <div id="qView" class="qview" style="display:none">
+        <div class="qvhead">📝 本题 <span id="qViewTag" style="font-weight:normal"></span></div>
+        <div id="qViewBody" class="qvbody"></div>
+      </div>
       <div id="chat"></div>
     </div>
   </div>
@@ -353,6 +360,20 @@ function addMsg(text, cls) {
   chat.appendChild(d);
   chat.scrollTop = chat.scrollHeight;
   return d;
+}
+
+// 抽题后在「做题窗口」顶部同步展示题目文本（带 KaTeX 渲染）
+function showQuestionCard(text, tagText) {
+  const body = document.getElementById('qViewBody');
+  let t = normLatex(text || '');
+  if (MATHY_SUBJECTS.indexOf(currentSubject()) >= 0) {
+    t = beautifyMath(t);
+  }
+  body.textContent = t;
+  renderMath(body);
+  document.getElementById('qViewTag').textContent = tagText || '';
+  document.getElementById('qView').style.display = '';
+  document.getElementById('hint').style.display = 'none';
 }
 
 function clearWorkArea() {
@@ -709,6 +730,7 @@ document.getElementById('btnPractice').onclick = async () => {
     closeLeftDrawer();
     document.getElementById('question').value = q.question;
     const tagText = [q.province, q.source_type, q.year || '', q.type, (q.tags || []).join('/')].filter(Boolean).join(' · ');
+    showQuestionCard(q.question, tagText);
     addMsg('🎲 已抽取「' + tagText + '」，点「开始讲题」开始', 'sys');
   } catch (e) {
     addMsg('⚠️ ' + e.message, 'error');
@@ -723,6 +745,7 @@ document.getElementById('btnSkip').onclick = async () => {
     closeLeftDrawer();
     document.getElementById('question').value = q.question;
     const tagText = [q.province, q.source_type, q.year || '', q.type].filter(Boolean).join(' · ');
+    showQuestionCard(q.question, tagText);
     if (oldQ) {
       try {
         const a = await api('/api/answer_of', {
