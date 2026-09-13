@@ -60,12 +60,39 @@
   .tagtitle { font-size:14px; font-weight:600; color:#2f6fed; }
   .tagchip { display:inline-block; background:#fff; border:1px solid #2f6fed; color:#2f6fed; border-radius:14px; padding:3px 10px; font-size:13px; margin:3px 4px 3px 0; cursor:pointer; }
   .tagchip:hover { background:#2f6fed; color:#fff; }
+  #tabsA { display:none; }
+  #barC { display:none; }
+  /* 移动端双模式：A=双页签，C=对话主屏+底部工具栏 */
+  @media (max-width: 900px) {
+    #tabsA { display:flex; gap:0; border-bottom:1px solid #e3e5e8; background:#fff; border-radius:10px; overflow:hidden; margin-bottom:10px; }
+    #tabsA button { flex:1; background:#fff; color:#555; border:none; border-radius:0; padding:10px; font-size:14px; cursor:pointer; }
+    #tabsA button.on { background:#2f6fed; color:#fff; }
+    body[data-ui="c"] #tabsA { display:none; }
+    body[data-ui="a"][data-view="q"] .right { display:none; }
+    body[data-ui="a"][data-view="c"] .left { display:none; }
+    /* 方案C：对话主屏 + 底部工具栏 + 题目抽屉 */
+    body[data-ui="c"] .left {
+      position:fixed; left:0; right:0; bottom:58px; max-height:72vh; overflow:auto;
+      z-index:40; display:none; border-radius:12px 12px 0 0; box-shadow:0 -4px 16px rgba(0,0,0,.15);
+    }
+    body[data-ui="c"] .left.open { display:block; }
+    body[data-ui="c"] .right { display:flex; flex-direction:column; padding-bottom:64px; }
+    body[data-ui="c"] #chat { order:1; min-height:300px; max-height:none; }
+    body[data-ui="c"] #answerArea { order:2; }
+    body[data-ui="c"] #hint { order:3; }
+    body[data-ui="c"] #barC {
+      display:flex; gap:8px; position:fixed; left:0; right:0; bottom:0; z-index:45;
+      background:#fff; border-top:1px solid #e3e5e8; padding:8px 10px;
+    }
+    #barC button { flex:1; padding:10px 4px; font-size:13px; }
+  }
 </style>
 </head>
 <body>
 <header>
   <h1>🧑‍🏫 追问式讲题教练 <span style="color:#999;font-weight:normal;font-size:12px">（B方案 MVP · 本地验证版）</span></h1>
   <div style="display:flex;align-items:center;gap:10px">
+    <button id="btnMode" class="sec" title="切换手机端布局：A双页签 / C对话主屏">🖥 布局A</button>
     <button id="btnInstall" class="sec" style="display:none">⬇️ 安装到桌面</button>
   </div>
 </header>
@@ -78,6 +105,10 @@
     <div class="small" id="gateMsg"></div>
   </div>
   <div id="appLayout" class="layout">
+    <div id="tabsA">
+      <button id="tabQ" class="on">📝 题目</button>
+      <button id="tabC">💬 做题</button>
+    </div>
     <div class="left">
       <h2>📝 题目</h2>
       <div class="row" style="margin-top:0">
@@ -147,6 +178,12 @@
       <div id="hint" class="sys">👈 先点「🎲 随机练一题」抽一道题（或把题目粘贴到左侧），再点「开始讲题」，AI 老师会在这里一步步引导你做题。</div>
       <div id="chat"></div>
     </div>
+  </div>
+  <div id="barC">
+    <button id="cDraw" class="sec">🎲 抽一题</button>
+    <button id="cPanel" class="sec">📝 题目</button>
+    <button id="cNb" class="sec">📕 错题本</button>
+    <button id="cAnswer" class="sec">✏️ 回答</button>
   </div>
   <div id="nbModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:50">
     <div style="background:#fff;max-width:560px;margin:40px auto;border-radius:12px;padding:16px;max-height:80vh;display:flex;flex-direction:column">
@@ -407,6 +444,7 @@ document.getElementById('btnStart').onclick = async () => {
     document.getElementById('btnAnswer').disabled = false;
     document.getElementById('btnSaveNB').disabled = false;
     setRound(r);
+    switchView('c');
     refreshBudget();
   } catch (e) {
     addMsg('⚠️ ' + e.message, 'error');
@@ -668,6 +706,7 @@ document.getElementById('btnPractice').onclick = async () => {
   try {
     const q = await drawQuestion(false);
     resetForNewQuestion();
+    closeLeftDrawer();
     document.getElementById('question').value = q.question;
     const tagText = [q.province, q.source_type, q.year || '', q.type, (q.tags || []).join('/')].filter(Boolean).join(' · ');
     addMsg('🎲 已抽取「' + tagText + '」，点「开始讲题」开始', 'sys');
@@ -681,6 +720,7 @@ document.getElementById('btnSkip').onclick = async () => {
   try {
     const q = await drawQuestion(true);
     resetForNewQuestion();
+    closeLeftDrawer();
     document.getElementById('question').value = q.question;
     const tagText = [q.province, q.source_type, q.year || '', q.type].filter(Boolean).join(' · ');
     if (oldQ) {
@@ -690,7 +730,8 @@ document.getElementById('btnSkip').onclick = async () => {
           subject: document.getElementById('subject').value
         });
         if (a.found) {
-          addMsg('📖 上一题答案（' + a.source + '）：\n' + a.answer, 'coach');
+          const steps = a.solution ? ('\n\n解题步骤：\n' + a.solution) : '';
+          addMsg('📖 上一题答案（' + a.source + '）：\n' + a.answer + steps, 'coach');
         } else {
           addMsg('📖 上一题答案：暂未收录，可重新载入该题后点「💡 直接看答案」。', 'sys');
         }
@@ -743,6 +784,41 @@ document.getElementById('btnGenQ').onclick = async () => {
     refreshBudget();
   }
 };
+
+// ---------- 布局模式切换（A双页签 / C对话主屏），右上角按钮 ----------
+let uiMode = localStorage.getItem('tutor_uimode') || 'a';
+function applyUi() {
+  document.body.dataset.ui = uiMode;
+  if (!document.body.dataset.view) document.body.dataset.view = 'q';
+  document.getElementById('btnMode').textContent = uiMode === 'a' ? '🖥 布局A' : '💬 布局C';
+}
+function switchView(v) {
+  document.body.dataset.view = v;
+  document.getElementById('tabQ').className = v === 'q' ? 'on' : '';
+  document.getElementById('tabC').className = v === 'c' ? 'on' : '';
+}
+function closeLeftDrawer() {
+  const l = document.querySelector('.left');
+  if (l) l.classList.remove('open');
+}
+document.getElementById('btnMode').onclick = () => {
+  uiMode = uiMode === 'a' ? 'c' : 'a';
+  localStorage.setItem('tutor_uimode', uiMode);
+  applyUi();
+};
+document.getElementById('tabQ').onclick = () => switchView('q');
+document.getElementById('tabC').onclick = () => switchView('c');
+document.getElementById('cDraw').onclick = () => { closeLeftDrawer(); document.getElementById('btnPractice').click(); };
+document.getElementById('cPanel').onclick = () => {
+  const l = document.querySelector('.left');
+  if (l) l.classList.toggle('open');
+};
+document.getElementById('cNb').onclick = () => { closeLeftDrawer(); openNb(); };
+document.getElementById('cAnswer').onclick = () => {
+  document.getElementById('answerArea').style.display = 'block';
+  document.getElementById('answer').focus();
+};
+applyUi();
 
 loadProvinces();
 loadGrades();

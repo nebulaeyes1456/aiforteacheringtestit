@@ -492,12 +492,17 @@ def answer_of():
             if config.ACCESS_MODE == "private":
                 raise ValueError("本服务仅限已购用户使用，请先输入兑换码。")
             _ensure_user(_uid())
-        # 题库命中：返回官方答案，无 AI 成本
+        # 题库命中：返回官方答案（含解题步骤），无 AI 成本
         bank = _bank()
         for q in bank.get("questions", []):
             if (q.get("question") or "").strip() == question and q.get("official_answer"):
                 _stat("answer_of_bank")
-                return jsonify({"found": True, "source": "题库答案", "answer": q["official_answer"]})
+                return jsonify({
+                    "found": True,
+                    "source": "题库答案",
+                    "answer": q["official_answer"],
+                    "solution": q.get("solution") or "",
+                })
         # 未命中：AI 完整解答（正常计费）
         t0 = time.time()
         text = client.chat(prompts.full_solution(question, [], "通用", "通用", subject))
