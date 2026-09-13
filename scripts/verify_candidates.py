@@ -181,10 +181,16 @@ def main():
             if processed % 25 == 0:
                 flush()
             continue
+        # 证明/新定义题：AI 无法全自动核验，标记人工审核（不直接上线）
+        is_proof = kind == "free" and bool(
+            re.search(r'证明|求证|新定义|判断是否成立|是否成立', c['question'])
+        )
+        if is_proof:
+            note += "；证明题待人工审核"
         bank["questions"].append(
             {
                 "id": qid,
-                "status": "ready",
+                "status": "review" if is_proof else "ready",
                 "province": c["province"],
                 "source_type": c["source_type"],
                 "source": c["source"],
