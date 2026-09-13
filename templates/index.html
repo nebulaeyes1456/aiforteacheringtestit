@@ -677,11 +677,27 @@ document.getElementById('btnPractice').onclick = async () => {
 };
 
 document.getElementById('btnSkip').onclick = async () => {
+  const oldQ = document.getElementById('question').value.trim();
   try {
     const q = await drawQuestion(true);
     resetForNewQuestion();
     document.getElementById('question').value = q.question;
     const tagText = [q.province, q.source_type, q.year || '', q.type].filter(Boolean).join(' · ');
+    if (oldQ) {
+      try {
+        const a = await api('/api/answer_of', {
+          question: oldQ,
+          subject: document.getElementById('subject').value
+        });
+        if (a.found) {
+          addMsg('📖 上一题答案（' + a.source + '）：\n' + a.answer, 'coach');
+        } else {
+          addMsg('📖 上一题答案：暂未收录，可重新载入该题后点「💡 直接看答案」。', 'sys');
+        }
+      } catch (e2) {
+        addMsg('📖 上一题答案获取失败：' + e2.message, 'sys');
+      }
+    }
     addMsg('💪 已换下一题「' + tagText + '」，点「开始讲题」开始', 'sys');
   } catch (e) {
     addMsg('⚠️ ' + e.message, 'error');

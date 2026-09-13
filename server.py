@@ -475,6 +475,49 @@ def gen_question():
     return _guard(run)
 
 
+@app.post("/api/answer_of")
+def answer_of():
+    """查看当前题目答案：题库命中返回官方答案（不调用 AI）；否则 AI 完整解答（计费）。"""
+    body = request.get_json(silent=True) or {}
+    question = (body.get("question") or "").strip()
+    subject = (body.get("subject") or "").strip() or config.SUBJECT
+    if not question:
+        return jsonify({"error": "题目不能为空"}), 400
+
+    def run():
+        v = _get_voucher(_key())
+        if v:
+            _check_voucher(v)
+        else:
+            if config.ACCESS_MODE == "private":
+                raise ValueError("本服务仅限已购用户使用，请先输入兑换码。")
+            _ensure_user(_uid())
+        # 题库命中：返回官方答案，无 AI 成本
+        bank = _bank()
+        for q in bank.get("questions", []):
+            if (q.get("question") or "").strip() == question and q.get("official_answer"):
+                _stat("answer_of_bank")
+                return jsonify({"found": True, "source": "题库答案", "answer": q["official_answer"]})
+        # 未命中：AI 完整解答（正常计费）
+        t0 = time.time()
+        text = client.chat(prompts.full_solution(question, [], "通用", "通用", subject))
+        elapsed = time.time() - t0
+        if v:
+            data = _load_vouchers()
+            vv = data["vouchers"].get(_key())
+            if vv:
+                vv["seconds_used"] = round(
+                    vv.get("seconds_used", 0.0) + min(elapsed, config.VOUCHER_IDLE_CAP_SEC), 1
+                )
+                _save_vouchers(data)
+        else:
+            _charge_user(_uid(), client.last_call_cost)
+        _stat("answer_of_ai")
+        return jsonify({"found": True, "source": "AI 解答", "answer": text})
+
+    return _guard(run)
+
+
 @app.post("/api/start")
 def start():
     body = request.get_json(silent=True) or {}
